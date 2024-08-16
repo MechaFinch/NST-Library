@@ -1,0 +1,11 @@
+
+--
+-- STANDARD LIBRARY - SIM UTIL
+-- DISK
+-- 
+
+-- read a sector
+external function _disk.read of ptr buffer, u16 file, u16 sector returns none;
+
+-- write a sector
+external function _disk.write of ptr buffer, u16 file, u16 sector returns none;

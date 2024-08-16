@@ -1,0 +1,23 @@
+
+--
+-- STANDARD LIBRARY - SIMVIDEO
+-- GRAPHICS UTILITIES
+-- NSTL TEMPLATE
+--
+
+-- sets the global palette
+external function _gutil.set_palette of u8 pointer palette returns none;
+
+-- sets a single color
+external function _gutil.set_color of u8 idx, u32 rgb returns none;
+
+external function _gutil.set_color_bytes of u8 idx, u8 r, u8 g, u8 b returns none;
+
+-- scrolls the screen upwards by n pixels
+external function _gutil.scroll_up of u8 n, u8 bgc returns none;
+
+-- scrolls the screen downwards by n pixels
+external function _gutil.scroll_down of u8 n, u8 bgc returns none;
+
+-- clears the screen
+external function _gutil.clear_screen of u8 bgc returns none;

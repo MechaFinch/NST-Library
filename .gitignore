@@ -1,0 +1,4 @@
+fakeos/obj/*
+fakeos/*.dat
+*.oex
+*.lst

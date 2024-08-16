@@ -1,0 +1,65 @@
+
+--
+-- STANDARD LIBRARY - FAKEOS
+-- FAKEOS WRAPPERS
+--
+
+-- Exit
+-- Exits the program.
+external function _os.syscall_exit of none returns none;
+
+-- Defer
+-- Defers execution to OS. Used for co-operative multitasking and/or unprivileged HLT
+external function _os.syscall_defer of none returns none;
+
+-- Memory Allocate
+-- Allocate n bytes of memory
+external function _os.malloc of u32 n returns ptr;
+
+-- Clear-Allocate
+-- Allocate n bytes of memory & clear them to zero
+external function _os.calloc of u32 n returns ptr;
+
+-- Re-Allocate
+-- Re-allocate a block to n bytes.
+external function _os.realloc of ptr block, u32 n returns ptr;
+
+-- Re-Clear-Allocate
+-- Re-allocate and clear a block
+external function _os.rcalloc of ptr block, u32 n returns ptr;
+
+-- Free
+-- Free a block
+external function _os.free of ptr block returns none;
+
+-- Open File
+-- Returns handle ID or -1
+-- Sets _os.errno
+external function _os.open_file of u16 flags, u16 name_len, ptr name_ptr returns u16;
+
+-- Close File
+external function _os.close_file of u16 handle_id returns none;
+
+-- Read File
+-- Returns number of bytes read
+-- Sets _os.errno
+external function _os.read_file of u16 handle_id, u32 buffer_length, ptr buffer_ptr returns u32;
+
+-- Write File
+-- Returns number of bytes written
+-- Sets _os.errno
+external function _os.write_file of u16 handle_id, u32 buffer_length, ptr buffer_ptr returns u32;
+
+-- Seek File
+-- Returns resulting position in file
+-- Sets _os.errno
+external function _os.seek_file of u16 handle_id, u16 flags, u32 value returns u32;
+
+-- Get File Position
+-- Returns head positions in argument pointers
+-- Sets _os.errno
+external function _os.get_file_pos of u16 handle_id, u32 pointer read_ptr, u32 pointer write_ptr returns none;
+
+-- Change File Attributes
+-- Sets _os.errno
+external function _os.change_file_attr of u16 handle_id, u16 flags returns none;

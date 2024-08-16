@@ -1,0 +1,54 @@
+
+--
+-- STANDARD LIBRARY - DATA STRUCTURES
+-- VEC
+-- Dynamic arrays
+-- 
+
+type vec_t is vec_ts pointer;
+
+type vec_ts is structure of
+	data is ptr,	-- Pointer to data
+	len is u32,		-- Length in elements
+	cap is u32,		-- Capacity in elements
+	dsize is u8		-- Size of data elements in bytes
+end type
+
+-- Creates a vector
+external function _vec.create of u32 cap, u8 dsize returns vec_t;
+
+-- Destroys a vector
+external function _vec.destroy of vec_t v returns none;
+
+-- Set an element in the vector
+-- Capacity may be increased.
+external function _vec.set of vec_t v, u32 i, ptr data returns none;
+
+-- Returns a pointer to the ith element
+-- Volatile with respect to set, remove, append, resize, push
+external function _vec.get of vec_t v, u32 i returns ptr;
+
+-- Destructively removes an element from the vector (overwritten with subsequent elements)
+external function _vec.remove of vec_t v, u32 i returns none;
+
+-- Append data to a vector
+-- Capacity may be increasd.
+external function _vec.append of vec_t v, ptr data returns none;
+
+-- Resizes vector capacity. Data lost if new capacity is smaller
+external function _vec.resize of vec_t v, u32 cap returns none;
+
+-- Pushes an element to the vector (equivalent to append)
+-- Capacity may be increased
+external function _vec.push of vec_t v, ptr data returns none;
+
+-- Pops an element from the vector, returning a pointer
+-- Data is not overwritten
+-- Volatile with respect to set, remove, append, resize, push
+external function _vec.pop of vec_t v returns ptr;
+
+-- Returns the length in elements of the vector
+external function _vec.len of vec_t v returns u32;
+
+-- Returns current capacity in elements of the vector
+external function _vec.cap of vec_t v returns u32;

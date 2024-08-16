@@ -1,0 +1,30 @@
+
+	FakeOS
+	Bare-bones implementation of several OS features for the emulator environment
+	Handles I/O
+	Call fakeos.init on startup.
+
+MEMORY
+	FakeOS controls the upper half of RAM 
+
+IMPLEMENTED FUNCTIONS
+	FULLY IMPLEMENTED
+		0000 Exit
+		0001 Defer
+		
+		0010 Memory Allocate
+		0011 Clear Allocate
+		0012 Re-Allocate
+		0013 Clear Re-Allocate
+		0014 Free
+	
+	PARTIALLY IMPLEMENTED
+		0022 Read File					STDIN only
+		0023 Write File					STDOUT only
+		0026 Change File Attributes		STDIN only
+	
+	NOT IMPLEMENTED
+		0020 Open File
+		0021 Close File
+		0024 Seek File
+		0025 Get File Position

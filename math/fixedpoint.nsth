@@ -1,0 +1,63 @@
+
+-- 
+-- STANDARD LIBRARY - MATH
+-- FIXED POINT
+-- NSTL TEMPLATE
+-- 
+-- Functions for various fixed point schema
+--	to		Converts integer to fixed point
+--	from	Converts fixed point to integer
+--	mulu	Unsigned multiply
+--	muls	Signed multiply
+--	divu	Unsigned divide
+--	divs	Signed divide
+--	sin		Sine
+--	cos		Cosine
+--	sincos	Dual sine & cosine. Sine in dest index 0, cosine in dest index 1
+-- 
+
+-- 8 bit integer, 24 bit fractional
+external function _fxp.to824 of u8 a returns u32;
+external function _fxp.from824 of u32 a returns u8;
+external function _fxp.mulu824 of u32 a, u32 b returns u32;
+external function _fxp.muls824 of i32 a, i32 b returns i32;
+external function _fxp.divu824 of u32 a, u32 b returns u32;
+external function _fxp.divs824 of i32 a, i32 b returns i32;
+external function _fxp.sin824 of i32 a returns i32;
+external function _fxp.cos824 of i32 a returns i32;
+external function _fxp.sincos824 of i32 pointer dest, i32 a returns none;
+
+-- 16 bit integer, 16 bit fractional
+external function _fxp.to1616 of u16 a returns u32;
+external function _fxp.from1616 of u32 a returns u16;
+external function _fxp.round1616 of u32 a returns u16;
+external function _fxp.mulu1616 of u32 a, u32 b returns u32;
+external function _fxp.muls1616 of i32 a, i32 b returns i32;
+external function _fxp.divu1616 of u32 a, u32 b returns u32;
+external function _fxp.divs1616 of i32 a, i32 b returns i32;
+external function _fxp.sin1616 of i32 a returns i32;
+external function _fxp.cos1616 of i32 a returns i32;
+external function _fxp.sincos1616 of i32 pointer dest, i32 a returns none;
+
+-- 24 bit integer, 8 bit fractional
+external function _fxp.to248 of u32 a returns u32;
+external function _fxp.fromu248 of u32 a returns u32;
+external function _fxp.froms248 of i32 a returns i32;
+external function _fxp.mulu248 of u32 a, u32 b returns u32;
+external function _fxp.muls248 of i32 a, i32 b returns i32;
+external function _fxp.divu248 of u32 a, u32 b returns u32;
+external function _fxp.divs248 of i32 a, i32 b returns i32;
+external function _fxp.sin248 of i32 a returns i32;
+external function _fxp.cos248 of i32 a returns i32;
+external function _fxp.sincos248 of i32 pointer dest, i32 a returns none;
+
+-- 8 bit integer, 8 bit fractional
+external function _fxp.to88 of u8 a returns u16;
+external function _fxp.from88 of u16 a returns u8;
+external function _fxp.mulu88 of u16 a, u16 b returns u16;
+external function _fxp.muls88 of i16 a, i16 b returns i16;
+external function _fxp.divu88 of u16 a, u16 b returns u16;
+external function _fxp.divs88 of i16 a, i16 b returns i16;
+external function _fxp.sin88 of i32 a returns i32;
+external function _fxp.cos88 of i32 a returns i32;
+external function _fxp.sincos88 of i32 pointer dest, i32 a returns none;
