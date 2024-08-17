@@ -5,7 +5,7 @@
 ;	This file imports fakeos for emulator use
 ;
 
-%include "fakeos.asm" as os
+%include "fakeos.asm" as fos
 
 %define SYSCALL INT 0x20
 %define OS_EXIT 		0x0001
@@ -27,6 +27,12 @@
 %define OS_STDERR		2
 
 errno: dp 1
+
+; none init()
+; Init the os
+init:
+	CALL fos.init
+	RET
 
 ; none exit()
 ; Exits the program

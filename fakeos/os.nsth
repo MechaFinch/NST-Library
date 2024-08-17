@@ -4,6 +4,10 @@
 -- FAKEOS WRAPPERS
 --
 
+-- Init
+-- Initialize os (emulator)
+external function _os.init of none returns none;
+
 -- Exit
 -- Exits the program.
 external function _os.syscall_exit of none returns none;

@@ -7,6 +7,8 @@
 %include "simvideo/gutil.asm" as gutil
 %include "simvideo/text.asm" as text
 
+%define VBUFFER_START 0xF002_0000
+
 ; Terminal State
 %define STATE_NORMAL			0
 %define STATE_ANSI_START		1
@@ -28,11 +30,17 @@ ansi_arg_0:			db 0
 ansi_arg_1:			db 0
 ansi_arg_2:			db 0
 ansi_arg_3:			db 0
+ansi_private_mode:	db 0
 cursor_x:			db 0
 cursor_y:			db 0
 color_foreground:	db 0xFF
 color_background:	db 0x01
 character_cursor:	db '_'
+draw_cursor:		db 1
+min_x:				db 0
+min_y:				db 0
+max_x:				db TERMINAL_WIDTH - 1
+max_y:				db TERMINAL_HEIGHT - 1
 
 
 
@@ -50,11 +58,13 @@ init_terminal:
 	MOV AL, STATE_NORMAL
 	MOV [current_state], AL
 	
-	MOVW D:A, 0
+	MOV AL, [min_x]
 	MOV [cursor_x], AL
+	MOV AL, [min_y]
 	MOV [cursor_y], AL
 	
 	; reset palette
+	MOVW D:A, 0
 	MOV C, 0
 	MOV I, 4
 	
@@ -99,7 +109,7 @@ init_terminal:
 	
 	; clear screen
 	PUSH byte 0
-	CALL gutil.clear_screen
+	CALL clear_screen
 	ADD SP, 11
 	
 	POP K
@@ -171,19 +181,25 @@ send_character:
 	
 	MOV BL, AH
 	DEC AH
-	CMP BL, 0
-	CMOVE AH, TERMINAL_WIDTH - 1
+	CMP BL, [min_x]
+	CMOVE AH, [max_x]
 	MOV [cursor_x], AH
 	JNE .backspace_cursor
 	
 	MOV BL, AL
 	DEC AL
-	CMP BL, 0
+	CMP BL, [min_y]
 	CMOVE AL, BL
 	MOV [cursor_y], AL
 
 .backspace_cursor:
+	CMP byte [draw_cursor], 0
+	JZ .backspace_space
 	CALL sub_draw_cursor_fast
+	JMP .ret
+
+.backspace_space:
+	CALL sub_clear_space
 	JMP .ret
 
 .char_is_tab:
@@ -201,18 +217,20 @@ send_character:
 	CALL sub_clear_cursor
 	
 	; move to next line
+.what:
 	MOV AL, [cursor_y]
 	INC AL
-	CMP AL, TERMINAL_HEIGHT
-	CMOVB [cursor_y], AL
-	JB .newline_no_scroll
+	CMP AL, [max_y]
+	CMOVA AL, [max_y]
+	MOV [cursor_y], AL
+	JBE .newline_no_scroll
 	
 	PUSH A
 	CALL sub_scroll_up
 	POP A
 
 .newline_no_scroll:
-	MOV AH, 0
+	MOV AH, [min_x]
 	MOV [cursor_x], AH
 	
 	CALL sub_draw_cursor_fast
@@ -330,6 +348,15 @@ send_character:
 	CMP AL, 'J'	; J-erase functions
 	JE ansi_erase_j
 	
+	CMP AL, '?'	; private modes
+	JE ansi_start_private_mode
+	
+	CMP AL, 'l'	; l-functions
+	JE ansi_func_l
+	
+	CMP AL, 'h'	; h-functions
+	JE ansi_func_h
+	
 	JMP .ret_normal
 
 .ret_normal:
@@ -342,6 +369,57 @@ send_character:
 	POP AL
 	POP BP
 	RET
+
+
+
+; \[[...l
+; l-functions
+ansi_func_l:
+	CMP byte [ansi_private_mode], 0
+	JZ .ret
+	MOV AL, 0
+	MOV [ansi_private_mode], AL
+	
+	CMP byte [ansi_arg_0], 25
+	JNE .ret
+	
+	; make cursor invisible
+	CALL sub_clear_cursor
+	MOV AL, 0
+	MOV [draw_cursor], AL
+
+.ret:
+	JMP send_character.ret_normal
+
+
+
+; \[[...h
+; h-functions
+ansi_func_h:
+	CMP byte [ansi_private_mode], 0
+	JZ .ret
+	MOV AL, 0
+	MOV [ansi_private_mode], AL
+	
+	CMP byte [ansi_arg_0], 25
+	JNE .ret
+	
+	; make cursor visible
+	MOV AL, 1
+	MOV [draw_cursor], AL
+	CALL sub_draw_cursor
+
+.ret:
+	JMP send_character.ret_normal
+
+
+
+; \[[?
+; Private mode
+ansi_start_private_mode:
+	MOV AL, 1
+	MOV [ansi_private_mode], AL
+	JMP send_character.ret
 
 
 
@@ -390,14 +468,14 @@ ansi_cursor_set_pos:
 .has_arg:
 	MOV AL, [ansi_arg_0]
 	MOV AH, [ansi_arg_1]
-	CALL sub_clamp_x
-	CALL sub_clamp_y
 
 	; erase cursor, move cursor, draw cursor
 .move_cursor:
 	PUSH A
 	CALL sub_clear_cursor
 	POP A
+	CALL sub_clamp_x
+	CALL sub_clamp_y
 	MOV [cursor_x], AH
 	MOV [cursor_y], AL
 	CALL sub_draw_cursor_fast
@@ -415,7 +493,7 @@ ansi_erase_j:
 
 .erase_entire_screen:
 	PUSH byte [color_background]
-	CALL gutil.clear_screen
+	CALL clear_screen
 	ADD SP, 1
 	JMP send_character.ret_normal
 
@@ -424,19 +502,19 @@ ansi_erase_j:
 ; subroutine clamp_y
 ; Clamps cursor y in AL
 sub_clamp_y:
-	CMP AL, 0
-	CMOVL AL, 0
-	CMP AL, TERMINAL_HEIGHT - 1
-	CMOVG AL, TERMINAL_HEIGHT - 1
+	CMP AL, [min_y]
+	CMOVB AL, [min_y]
+	CMP AL, [max_y]
+	CMOVA AL, [max_y]
 	RET
 	
 ; subroutine clamp_x
 ; Clamps cursor x in AH
 sub_clamp_x:
-	CMP AH, 0
-	CMOVL AH, 0
-	CMP AH, TERMINAL_WIDTH - 1
-	CMOVG AH, TERMINAL_WIDTH - 1
+	CMP AH, [min_x]
+	CMOVB AH, [min_x]
+	CMP AH, [max_x]
+	CMOVA AH, [max_x]
 	RET
 
 
@@ -539,20 +617,21 @@ sub_normal_char:
 	MOV AL, [cursor_y]
 	MOV AH, [cursor_x]
 	INC AH
-	CMP AH, TERMINAL_WIDTH
-	CMOVNB AH, 0
+	CMP AH, [max_x]
+	CMOVA AH, [min_x]
 	MOV [cursor_x], AH
-	JB .print_cursor
+	JBE .print_cursor
 	
 	INC AL
-	CMP AL, TERMINAL_HEIGHT
-	CMOVB [cursor_y], AL
+	CMP AL, [max_y]
+	CMOVA AL, [max_y]
+	MOV [cursor_y], AL
 	JB .print_cursor
 	
 	PUSH A
 	PUSH byte [color_background]
 	PUSH byte 8
-	CALL gutil.scroll_up
+	CALL scroll_up
 	ADD SP, 2
 	POP A
 	
@@ -565,6 +644,15 @@ sub_normal_char:
 ; subroutine clear_cursor
 ; Prints a space at the current cursor position
 sub_clear_cursor:
+	CMP byte [draw_cursor], 0
+	JNE sub_clear_space
+	RET
+
+
+
+; subroutine clear_space
+; Prints a space at the current cursor position without checking cursor drawing mode
+sub_clear_space:
 	PUSH byte [cursor_x]
 	PUSH byte [cursor_y]
 	PUSH byte [color_background]
@@ -578,7 +666,9 @@ sub_clear_cursor:
 
 ; subroutine draw_cursor
 ; Prints the cursor character at the cursor position
-sub_draw_cursor:	
+sub_draw_cursor:
+	CMP byte [draw_cursor], 0
+	JE .ret
 	PUSH byte [cursor_x]
 	PUSH byte [cursor_y]
 	PUSH byte [color_background]
@@ -586,6 +676,7 @@ sub_draw_cursor:
 	PUSH byte [character_cursor]
 	CALL text.a_char
 	ADD SP, 5
+.ret:
 	RET
 
 
@@ -593,12 +684,15 @@ sub_draw_cursor:
 ; subroutine draw_cursor_fast
 ; Prints the cursor character at the position in A
 sub_draw_cursor_fast:
+	CMP byte [draw_cursor], 0
+	JE .ret
 	PUSH A
 	PUSH byte [color_background]
 	PUSH byte [color_foreground]
 	PUSH byte [character_cursor]
 	CALL text.a_char
 	ADD SP, 5
+.ret:
 	RET
 
 
@@ -608,7 +702,7 @@ sub_draw_cursor_fast:
 sub_scroll_up:
 	PUSH byte [color_background]
 	PUSH byte 8
-	CALL gutil.scroll_up
+	CALL scroll_up
 	ADD SP, 2
 	RET
 
@@ -619,6 +713,295 @@ sub_scroll_up:
 sub_scroll_down:
 	PUSH byte [color_background]
 	PUSH byte 8
-	CALL gutil.scroll_down
+	CALL scroll_down
 	ADD SP, 2
+	RET
+
+
+
+; none scroll_up(u8 n, u8 color)
+; Scroll the screen area up by n pixels
+scroll_up:
+	PUSHW BP
+	MOVW BP, SP
+	SUB SP, 4
+	PUSHW J:I
+	PUSHW L:K
+	
+	; check bounds
+	CMP byte [BP + 8], 0	; if n = 0, no work to do
+	JZ .do_nothing
+	
+	MOV AL, [max_y]			; if n >= sceen area height = (max_y - min_y + 1) * 8, clear screen
+	SUB AL, [min_y]
+	INC AL
+	SHL AL, 3
+	CMP AL, [BP + 8]
+	JA .do_scroll
+	
+	PUSH byte [BP + 9]
+	CALL clear_screen
+	ADD SP, 1
+	JMP .ret
+
+.do_scroll:
+	
+	; D:A = data
+	; B = line counter
+	; C = pixel counter
+	; J:I = source
+	; L:K = dest
+	; [BP - 2] = pixels/line
+	; [BP - 4] = newline offset
+	
+	; start dest address = VBUFFER_START + (min_y * 320 * 8) + (min_x * 8)
+	MOVW L:K, VBUFFER_START	; VBUFFER_START	
+	MOVZ A, [min_y]			; min_y * 320 * 8
+	MULH D:A, 320 * 8
+	ADD K, A
+	ADC L, D
+	
+	MOVZ A, [min_x]			; min_x * 8
+	SHL A, 3
+	ADD K, A
+	ICC L
+	
+	; start source addres = start dest address + (n * 320)
+	MOVZ A, [BP + 8]
+	MULH D:A, 320
+	MOVW J:I, L:K
+	ADD I, A
+	ADC J, D
+	
+	; #pixels/line = (max_x - min-x + 1) * 8
+	MOV AL, [max_x]
+	SUB AL, [min_x]
+	INC A
+	MULH A, 8
+	MOV [BP - 2], A
+	
+	; newline offset = 320 - pixels/line
+	MOV D, 320
+	SUB D, A
+	MOV [BP - 4], D
+	
+	; #lines to copy = ((max_y - min-y + 1) * 8) - n
+	MOV BL, [max_y]
+	SUB BL, [min_y]
+	INC BL
+	MULH B, 8
+	SUB BL, [BP + 8]
+	DCC BH
+	
+	; get going
+.line_copy_loop:
+	MOV C, [BP - 2]
+	
+	; copy 4 characters worth
+.pixel_copy_loop_32:
+	CMP C, 32
+	JB .pixel_copy_loop_short
+	MOVW D:A, [J:I + 0]
+	MOVW [L:K + 0], D:A
+	MOVW D:A, [J:I + 4]
+	MOVW [L:K + 4], D:A
+	MOVW D:A, [J:I + 8]
+	MOVW [L:K + 8], D:A
+	MOVW D:A, [J:I + 12]
+	MOVW [L:K + 12], D:A
+	MOVW D:A, [J:I + 16]
+	MOVW [L:K + 16], D:A
+	MOVW D:A, [J:I + 20]
+	MOVW [L:K + 20], D:A
+	MOVW D:A, [J:I + 24]
+	MOVW [L:K + 24], D:A
+	MOVW D:A, [J:I + 28]
+	MOVW [L:K + 28], D:A
+	
+	ADD I, 32
+	ICC J
+	ADD K, 32
+	ICC L
+	SUB C, 32
+	JNZ .pixel_copy_loop_32
+	JMP .line_copy_done
+
+.pixel_copy_loop_short:
+	MOVW D:A, [J:I + 0]
+	MOVW [L:K + 0], D:A
+	MOVW D:A, [J:I + 4]
+	MOVW [L:K + 4], D:A
+	
+	ADD I, 8
+	ICC J
+	ADD K, 8
+	ICC L
+	SUB C, 8
+	JNZ .pixel_copy_loop_short
+
+	; done with the line
+.line_copy_done:
+	ADD I, [BP - 4]
+	ICC J
+	ADD K, [BP - 4]
+	ICC L
+	DEC B
+	JNZ .line_copy_loop
+	
+	; clear remaining n lines
+	MOVZ B, [BP + 8]
+	MOV AL, [BP + 9]
+	MOV AH, AL
+	MOV D, A
+	MOVW J:I, [BP - 4]
+
+.line_clear_loop:
+	MOV C, J
+	
+	; clear 4 characters worth
+.pixel_clear_loop_32:
+	CMP C, 32
+	JB .pixel_clear_loop_short
+	MOVW [L:K + 0], D:A
+	MOVW [L:K + 4], D:A
+	MOVW [L:K + 8], D:A
+	MOVW [L:K + 12], D:A
+	MOVW [L:K + 16], D:A
+	MOVW [L:K + 20], D:A
+	MOVW [L:K + 24], D:A
+	MOVW [L:K + 28], D:A
+	
+	ADD K, 32
+	ICC L
+	SUB C, 32
+	JNZ .pixel_clear_loop_32
+	JMP .line_clear_done
+
+.pixel_clear_loop_short:
+	MOVW [L:K + 0], D:A
+	MOVW [L:K + 4], D:A
+	
+	ADD K, 8
+	ICC L
+	SUB C, 8
+	JNZ .pixel_clear_loop_short
+
+	; done with the line
+.line_clear_done:
+	ADD K, I
+	ICC L
+	DEC B
+	JNZ .line_clear_loop
+	
+.do_nothing:
+.ret:
+	POPW L:K
+	POPW J:I
+	ADD SP, 4
+	POPW BP
+	RET
+
+
+
+; none scroll_down(u8 n, u8 color)
+; Scroll the screen area down by n pixels
+scroll_down:
+	PUSHW BP
+	MOVW BP, SP
+	
+	POPW BP
+	RET
+
+
+
+; none clear_screen(u8 color)
+; Fills the screen area with color
+clear_screen:
+	PUSHW BP
+	MOVW BP, SP
+	PUSHW J:I
+	PUSHW L:K
+	
+	; D:A = data
+	; J:I = address
+	; B = line counter
+	; C = pixel counter
+	; K = newline offset
+	; L = pixels/line
+	
+	; start address = VBUFFER_START + (min_y * 320 * 8) + (min_x * 8)
+	MOVW J:I, VBUFFER_START
+	MOVZ A, [min_y]
+	MULH D:A, (320 * 8)
+	ADD I, A
+	ADC J, D
+	MOVZ A, [min_x]
+	MULH D:A, 8
+	ADD I, A
+	ADC J, D
+	
+	; #pixels/line = (max_x - min-x + 1) * 8
+	MOV AL, [max_x]
+	SUB AL, [min_x]
+	INC A
+	MULH A, 8
+	MOV L, A
+	
+	; newline offset = 320 - pixels/line
+	MOV K, 320
+	SUB K, L
+	
+	; #lines to clear = (max_y - min-y + 1) * 8
+	MOV BL, [max_y]
+	SUB BL, [min_y]
+	INC BL
+	MULH B, 8
+	
+	; data = all color
+	MOV AL, [BP + 8]
+	MOV AH, AL
+	MOV D, A
+	
+	; get going
+.line_loop:
+	MOV C, L
+
+	; clear 4 characters worth
+.pixel_loop_32:
+	CMP C, 32
+	JB .pixel_loop_short
+	MOVW [J:I + 0], D:A
+	MOVW [J:I + 4], D:A
+	MOVW [J:I + 8], D:A
+	MOVW [J:I + 12], D:A
+	MOVW [J:I + 16], D:A
+	MOVW [J:I + 20], D:A
+	MOVW [J:I + 24], D:A
+	MOVW [J:I + 28], D:A
+	
+	ADD I, 32
+	ICC J
+	SUB C, 32
+	JNZ .pixel_loop_32
+	JMP .line_done
+	
+	; clear 1 character worth
+.pixel_loop_short:
+	MOVW [J:I + 0], D:A
+	MOVW [J:I + 4], D:A
+	
+	ADD I, 8
+	ICC J
+	SUB C, 8
+	JNZ .pixel_loop_short
+	
+	; done with the line
+.line_done:
+	LEA J:I, [J:I + K]	; next line
+	DEC B
+	JNZ .line_loop
+	
+	POPW L:K
+	POPW J:I
+	POPW BP
 	RET
