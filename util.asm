@@ -22,6 +22,67 @@ unbuffer_screen:
 	MOV [0xF003_FFFC], AL
 	RET
 
+; none memcopy(ptr source, ptr dest, u32 length)
+memcopy:
+	PUSHW BP
+	MOVW BP, SP
+	PUSHW J:I
+	PUSHW L:K
+	
+	; D:A = data
+	; B:C = source
+	; J:I = dest
+	; L:K = length
+	MOVW B:C, [BP + 8]
+	MOVW J:I, [BP + 12]
+	MOVW L:K, [BP + 16]
+	JMP .cmp
+	
+.loop:
+	MOVW D:A, [B:C]
+	MOVW [J:I], D:A
+	
+	ADD C, 4
+	ICC B
+	ADD I, 4
+	ICC J
+	
+	SUB K, 4
+	DCC L
+	
+.cmp:
+	CMP L, 0
+	JNZ .loop
+	CMP K, 4
+	JAE .loop
+	JMP byte [IP + K]
+	db @.zero
+	db @.one
+	db @.two
+	db @.three
+
+.three:
+	MOV A, [B:C]
+	MOV [J:I], A
+	MOV AL, [B:C + 2]
+	MOV [J:I + 2], AL
+	JMP .zero
+
+.two:
+	MOV A, [B:C]
+	MOV [J:I], A
+	JMP .zero
+	
+.one:
+	MOV AL, [B:C]
+	MOV [J:I], AL
+	
+.zero:	
+	POPW L:K
+	POPW J:I
+	POPW BP
+	RET
+
 ; none halt()
 ; halts
 halt:

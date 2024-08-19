@@ -26,8 +26,8 @@ init:
 	MOVW BP, SP
 	
 	; init DMA
-	PUSH ptr 0x000D_0000
-	PUSH ptr 0x0002_0000
+	PUSH ptr 0x0007_0000
+	PUSH ptr 0x0008_0000
 	CALL dma.init
 	ADD SP, 8
 	
@@ -223,8 +223,11 @@ syscall_read_file:
 	
 	; pre-echo special cases
 	CMP AL, CHAR_BACKSPACE
+	JE .pre_echo_is_backspace
+	CMP AL, CHAR_BACKSPACE | 0x80
 	JNE .pre_echo_not_backspace
 	
+.pre_echo_is_backspace:
 	; backspace. don't echo if there's nothing to remove
 	XCHGW D:A, [SP]
 	CMP D, 0
@@ -270,6 +273,10 @@ syscall_read_file:
 	JMP .term_read_loop
 	
 .read_no_echo:
+	CMP byte [stdio_state_input_echo], 0
+	JZ .ignore_special
+	AND AL, 0x7F
+	
 	; special cases
 	CMP AL, CHAR_BACKSPACE
 	JNE .read_not_backspace
@@ -313,6 +320,7 @@ syscall_read_file:
 	JMP .term_read_loop
 
 .read_not_newline:
+.ignore_special:
 	MOV [J:I], AL
 
 	POP A

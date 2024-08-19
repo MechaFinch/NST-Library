@@ -11,6 +11,9 @@ type function_descriptor is structure of
 	ret_size is u8		-- size of the return type in bytes (0 - 4)
 end type
 
+-- memcopy
+external function _util.memcopy of ptr source, ptr dest, u32 length returns none;
+
 -- Calls the function described by the given descriptor with arguments held in the args buffer,
 -- returning the return value of the function. Interrupts are disabled during execution of
 -- the function.

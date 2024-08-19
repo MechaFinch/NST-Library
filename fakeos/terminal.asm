@@ -41,6 +41,7 @@ min_x:				db 0
 min_y:				db 0
 max_x:				db TERMINAL_WIDTH - 1
 max_y:				db TERMINAL_HEIGHT - 1
+enabled:			db 1
 
 
 
@@ -131,6 +132,9 @@ send_character:
 	
 	PUSH I
 	PUSH J
+	
+	CMP byte [enabled], 0
+	JZ .ret
 	
 	; what state are we in
 	MOVZ A, [current_state]
@@ -626,7 +630,7 @@ sub_normal_char:
 	CMP AL, [max_y]
 	CMOVA AL, [max_y]
 	MOV [cursor_y], AL
-	JB .print_cursor
+	JBE .print_cursor
 	
 	PUSH A
 	PUSH byte [color_background]

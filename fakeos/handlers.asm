@@ -32,6 +32,16 @@ keydown:
 	
 	; get char
 	MOVZ A, [KEY_BUFFER]
+	
+	; distinguish arrow keys (hack)
+	CMP AL, 0x25
+	JB .not_arrow
+	CMP AL, 0x28
+	JA .not_arrow
+	
+	SUB AL, (0x25 - 0x15)
+	
+.not_arrow:
 	AND AL, 0x7F
 	
 	; update state table
@@ -61,6 +71,9 @@ keydown:
 	CMOVNZ AL, [.caps_shift_table + A]
 
 .add_char:
+	; store shift state in sign bit
+	OR AL, [shift_state]
+
 	; add to buffer
 	CMP byte [char_buf_available], 16	; drop character if no space
 	JAE .ret
@@ -85,6 +98,7 @@ keydown:
 	JMP .ret
 	
 .shift:
+	MOV AL, 0x80
 	MOV [shift_state], AL
 	
 .ret:
