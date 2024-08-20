@@ -8,8 +8,8 @@
 %include "fakeos.asm" as fos
 
 %define SYSCALL INT 0x20
-%define OS_EXIT 		0x0001
-%define OS_DEFER		0x0002
+%define OS_EXIT 		0x0000
+%define OS_DEFER		0x0001
 %define OS_MALLOC		0x0010
 %define OS_CALLOC		0x0011
 %define OS_REALLOC		0x0012
@@ -28,10 +28,18 @@
 
 errno: dp 1
 
-; none init()
+; none init(u32 dram_start, u32 dram_size)
 ; Init the os
 init:
+	PUSHW BP
+	MOVW BP, SP
+	
+	PUSHW ptr [BP + 12]
+	PUSHW ptr [BP + 8]
 	CALL fos.init
+	ADD SP, 8
+	
+	POPW BP
 	RET
 
 ; none exit()

@@ -14,20 +14,23 @@
 %define CHAR_BACKSPACE 0x08
 %define CHAR_NEWLINE 0x0A
 
+%define TRUE_RESET_ADDR 0xF007_0000
+
 stdio_state_input_echo:		db 1
 stdio_state_include_ansi:	db 1
+stdio_state_blocking:		db 1
 
 
 
-; none init()
+; none init(u32 dram_start, u32 dram_size)
 ;	Initializes FakeOS
 init:
 	PUSH BP
 	MOVW BP, SP
 	
 	; init DMA
-	PUSH ptr 0x0007_0000
-	PUSH ptr 0x0008_0000
+	PUSH ptr [BP + 12]
+	PUSH ptr [BP + 8]
 	CALL dma.init
 	ADD SP, 8
 	
@@ -66,15 +69,17 @@ disable_interrupts:
 
 ; 0000 Exit
 syscall_exit:
-	; end
+	; Reset
+	MOV [TRUE_RESET_ADDR], AL
 	HLT
-	JMP syscall_exit
 
 
 
 ; 0001 Defer
 syscall_defer:
+	CALL enable_interrupts
 	HLT
+	CALL disable_interrupts
 	RET
 
 
@@ -201,6 +206,8 @@ syscall_read_file:
 	JA .term_read_get
 	
 	; no
+	CMP byte [stdio_state_blocking], 0
+	JE .ret_ok
 	CALL enable_interrupts
 	HLT
 	CALL disable_interrupts
@@ -345,7 +352,9 @@ syscall_read_file:
 .ret_err:
 	MOVW D:A, 0
 	MOV B, -1
-	
+
+.ret_ok:
+	MOV B, 0
 .ret:
 	POP L
 	POP K
@@ -454,9 +463,15 @@ syscall_change_file_attr:
 	MOV [stdio_state_input_echo], CL
 	
 	SHR CH, 1
-	NOT CH			; inverted for fast check
-	AND CH, 0x01	; bit 1 = include escape sequences
-	MOV [stdio_state_include_ansi], CH
+	MOV CL, CH
+	NOT CL			; inverted for fast check
+	AND CL, 0x01	; bit 1 = include escape sequences
+	MOV [stdio_state_include_ansi], CL
+	
+	SHR CH, 1
+	MOV CL, CH
+	AND CL, 0x01	; bit 2 = blocking mode
+	MOV [stdio_state_blocking], CL
 	
 	JMP .ret
 

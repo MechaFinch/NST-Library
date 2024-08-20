@@ -6,15 +6,15 @@
 
 -- Init
 -- Initialize os (emulator)
-external function _os.init of none returns none;
+external function _os.init of ptr dram_start, u32 dram_size returns none;
 
 -- Exit
 -- Exits the program.
-external function _os.syscall_exit of none returns none;
+external function _os.exit of none returns none;
 
 -- Defer
 -- Defers execution to OS. Used for co-operative multitasking and/or unprivileged HLT
-external function _os.syscall_defer of none returns none;
+external function _os.defer of none returns none;
 
 -- Memory Allocate
 -- Allocate n bytes of memory
