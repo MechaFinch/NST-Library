@@ -13,6 +13,19 @@
 
 %libname mathutil
 
+mulu32_high:
+	PUSH BP
+	MOV BP, SP
+	
+	PUSHW ptr [BP + 12]
+	PUSHW ptr [BP + 8]
+	CALL mulu32
+	ADD SP, 8
+	
+	MOVW D:A, B:C
+	POPW BP
+	RET
+
 ; u64 mulu32(u32 a, u32 b)
 ; Returns a * b in B:C:D:A. Unsigned.
 mulu32:
@@ -62,6 +75,19 @@ mulu32:
 	RET
 
 
+
+muls32_high:
+	PUSH BP
+	MOV BP, SP
+	
+	PUSHW ptr [BP + 12]
+	PUSHW ptr [BP + 8]
+	CALL muls32
+	ADD SP, 8
+	
+	MOVW D:A, B:C
+	POPW BP
+	RET
 
 ; i64 muls32(i32 a, i32 b)
 ; Returns a * b in B:C:D:A. Signed.
@@ -147,6 +173,23 @@ muls32:
 
 
 
+divu32:
+	JMP divmu32
+
+remu32:
+	PUSH BP
+	MOV BP, SP
+	
+	PUSHW ptr [BP + 12]
+	PUSHW ptr [BP + 8]
+	CALL divmu32
+	ADD SP, 8
+	
+.done:
+	MOVW D:A, B:C
+	POPW BP
+	RET
+
 ; divmu(u32 a, u32 b): u64
 ; Returns a / b in D:A and a % b in B:C. Unsigned
 divmu32:
@@ -163,6 +206,7 @@ divmu32:
 	CMP B, 0
 	JNZ .wont_fit
 	
+.divzero:
 	MOVW D:A, 0
 	POP BP
 	RET
@@ -180,6 +224,7 @@ divmu32:
 	MOV C, D	; remainder in C
 	MOV B, 0	; zero high words
 	MOV D, 0
+.retsmall:
 	POP BP
 	RET
 
@@ -254,6 +299,7 @@ divmu32:
 	JNZ .loop
 	
 	; done
+.done:
 	POP L
 	POP K
 	POP J
@@ -265,6 +311,22 @@ divmu32:
 	RET
 
 
+
+divs32:
+	JMP divms32
+
+rems32:
+	PUSH BP
+	MOV BP, SP
+	
+	PUSHW ptr [BP + 12]
+	PUSHW ptr [BP + 8]
+	CALL divms32
+	ADD SP, 8
+	
+	MOVW D:A, B:C
+	POPW BP
+	RET
 
 ; divms32(i32 a, i32 b): i64
 ; Returns a / b in D:A and a % b in B:C. Signed

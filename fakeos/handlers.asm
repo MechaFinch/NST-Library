@@ -8,11 +8,17 @@
 
 %define KEY_BUFFER			0xF000_0000
 %define KEYCODE_SHIFT		0x10
+%define KEYCODE_ALT			0x12
 %define KEYCODE_CAPSLOCK	0x14
+
+%define SYSCALL_STACK_SIZE 64
+
+%PRIVILAGED
 
 segfault_state:	db 0
 shift_state:	db 0
 capslock_state:	db 0
+alt_state:		db 0
 
 %define CHAR_BUFFER_SIZE 16
 
@@ -23,7 +29,7 @@ char_buf_available:		db 0
 
 key_state_table:	repeat 256, db 0
 
-
+rtc_ticks: dp 0
 
 ; keydown
 ; ISR for key pressed
@@ -32,6 +38,12 @@ keydown:
 	
 	; get char
 	MOVZ A, [KEY_BUFFER]
+	
+	CMP A, KEYCODE_ALT
+	JE .alt
+	
+	CMP byte [alt_state], 0
+	JNZ .add_char
 	
 	; distinguish arrow keys (hack)
 	CMP AL, 0x25
@@ -69,6 +81,7 @@ keydown:
 	CMP byte [shift_state], 0	; if shift held, apply table
 	CMOVZ AL, [.caps_non_shift_table + A]
 	CMOVNZ AL, [.caps_shift_table + A]
+	JMP .add_char
 
 .add_char:
 	; store shift state in sign bit
@@ -95,6 +108,11 @@ keydown:
 
 .caps_press:
 	NOT byte [capslock_state]
+	JMP .ret
+
+.alt:
+	MOV AL, 0x80
+	MOV [alt_state], AL
 	JMP .ret
 	
 .shift:
@@ -158,6 +176,16 @@ keyup:
 	PUSH B
 	
 	MOVZ A, [KEY_BUFFER]
+	
+	; distinguish arrow keys (hack)
+	CMP AL, 0x25
+	JB .not_arrow
+	CMP AL, 0x28
+	JA .not_arrow
+	
+	SUB AL, (0x25 - 0x15)
+	
+.not_arrow:
 	AND AL, 0x7F
 	
 	; update state table
@@ -166,6 +194,8 @@ keyup:
 	
 	CMP AL, KEYCODE_SHIFT
 	CMOVE [shift_state], BL
+	CMP AL, KEYCODE_ALT
+	CMOVE [alt_state], BL
 	
 	POP B
 	POP A
@@ -176,6 +206,9 @@ keyup:
 ; rtc
 ; Real Time Clock
 rtc:
+	MOVW BP, rtc_ticks
+	INC word [BP]
+	ICC word [BP + 2]
 	IRET
 
 
@@ -194,6 +227,23 @@ segfault:
 
 string_segfault: db 0x1B, "[0m", 0x1B, "[HSEGMENTATION FAULT"
 string_segfault_after:
+
+
+
+; de
+; decoding error
+de:
+	MOV A, 0x23
+	MOV D, 1
+	MOVW B:C, string_de_after - string_de
+	MOVW J:I, string_de
+	INT 0x20
+.end:
+	HLT
+	JMP .end
+
+string_de: db 0x1B, "[0m", 0x1B, "[HDECODING ERROR"
+string_de_after:
 
 
 
@@ -232,7 +282,7 @@ string_mpfault_after:
 
 ; syscall
 ; System call
-syscall:
+syscall:	
 	CALLA [.table + A*4]
 	IRET
 	
@@ -258,3 +308,10 @@ syscall:
 	dp os.syscall_seek_file			; 0024
 	dp os.syscall_get_file_pos		; 0025
 	dp os.syscall_change_file_attr	; 0026
+	
+	resp 9
+	
+	dp os.syscall_util_get_term_pos	; 0030
+	dp os.syscall_util_get_term_area; 0031
+	dp os.syscall_util_get_key_state; 0032
+	dp os.syscall_util_get_millis	; 0033

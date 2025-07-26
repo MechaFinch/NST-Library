@@ -5,6 +5,7 @@
 
 %include "handlers.asm" as h
 
+%PRIVILAGED
 %org 0
 
 reset:		dp null				; 0x00	0
@@ -15,7 +16,8 @@ keydown:	dp h.keydown		; 0x03	3
 segfault:	dp h.segfault		; 0x08	8
 			repeat 3, dp null	; 		9-11
 rtc:		dp h.rtc			; 0x0C	12
-			repeat 3, dp null	; 		13-15
+			repeat 2, dp null	; 		13-14
+de:			dp h.de				; 0x0F	15
 gpf:		dp h.gpf			; 0x10	16
 mpf:		dp h.mpf			; 0x11	17
 			repeat 14, dp null	;		18-31

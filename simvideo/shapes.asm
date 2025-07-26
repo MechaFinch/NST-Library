@@ -47,8 +47,10 @@ freeline:
 	; B = y2
 	; C = x2
 	; D = x1
-	MOVW D:A, [BP + 8]
-	MOVW B:C, [BP + 12]
+	MOV A, [BP + 10]
+	MOV B, [BP + 14]
+	MOV C, [BP + 12]
+	MOV D, [BP + 8]
 	
 	; determine what subroutine to call and how
 	; absolute value
@@ -69,7 +71,7 @@ freeline:
 	CMP A, D
 	JGE .quadhigh
 	
-	; low half. x1 > x2 if sign set
+	; low half. x1 > x2 if (x2 - x1) sign set
 	; bresenham's: shallow slope
 	; A = yi
 	; B = dy
@@ -77,7 +79,7 @@ freeline:
 	; D = D
 	; J:I = pointer, tmp y
 	; K = counter (abs(x2 - x1))
-	; L = tmp x
+	; L = tmp x, y increment in buffer
 	MOV K, D
 	CMP C, 0 ; if sign set, x1 > x2 -> swap points
 	JNS .low_no_rev
@@ -111,10 +113,8 @@ freeline:
 	ADC J, (VBUFFER_START / 0x1_0000)
 	
 	; AL = color
-	; L = yi * COLS_PIXELS
-	CMP A, 0
-	CMOVS L, 0 - COLS_PIXELS
-	CMOVNS L, COLS_PIXELS
+	; L = yi
+	MOV L, A
 	MOV AL, [BP + 16]
 	
 	; C = 2 * (dy - dx)
@@ -137,11 +137,11 @@ freeline:
 	
 	CMP L, 0
 	JS .yi_neg
-	ADD I, L ; y += yi
+	ADD I, COLS_PIXELS ; y += yi
 	ICC J
 	JMP .yi_pos
 .yi_neg:
-	ADD I, L
+	SUB I, COLS_PIXELS
 	DCC J
 .yi_pos:
 	ADD D, C ; D += 2 * (dy - dx)
@@ -168,7 +168,6 @@ freeline:
 	; L = tmp x
 .quadhigh:
 	MOV K, A ; counter = abs(y2 - y1)
-	MOV A, D ; get abs(dx)
 	CMP B, 0
 	JNS .high_no_rev
 	
@@ -185,13 +184,12 @@ freeline:
 .draw_high:
 	; xi = 1 if dx pos else -1
 	; dx = abs(dx)
-	XCHG A, C
-	SHR A, 15	; 1 if negative else 0
-	NEG A		; -1 if negative else 0
-	CMOVZ A, 1	; -1 if negative else 1
+	CMP C, 0
+	CMOVNS A, 1
+	CMOVS A, -1
+	MOV C, D
 	
 	; D = 2dx - dy
-	MOV D, C
 	SHL D, 1
 	SUB D, B
 	
@@ -217,7 +215,7 @@ freeline:
 .high_loop:
 	; place pixel
 	MOV [J:I], AL
-	INC I
+	ADD I, COLS_PIXELS
 	ICC J
 	
 	CMP D, 0
@@ -234,7 +232,7 @@ freeline:
 .xi_pos:
 	ADD D, B
 	DEC K
-	JNS .low_loop
+	JNS .high_loop
 	JMP .done
 
 .no_x_change:

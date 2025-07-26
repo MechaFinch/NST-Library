@@ -6,6 +6,8 @@
 ;
 
 %include "fakeos.asm" as fos
+%include "terminal.asm" as term
+%include "handlers.asm" as handlers
 
 %define SYSCALL INT 0x20
 %define OS_EXIT 		0x0000
@@ -40,6 +42,31 @@ init:
 	ADD SP, 8
 	
 	POPW BP
+	RET
+
+; u16 get_term_pos()
+; Get cursor x/y
+get_term_pos:
+	MOV A, 0x0030
+	SYSCALL
+	RET
+
+; u32 get_term_area()
+get_term_area:
+	MOV A, 0x0031
+	SYSCALL
+	RET
+
+; u8 get_key_state(u8 key)
+get_key_state:
+	MOV A, 0x0032
+	SYSCALL
+	RET
+
+; u32 get_time()
+get_time:
+	MOV A, 0x0033
+	SYSCALL
 	RET
 
 ; none exit()

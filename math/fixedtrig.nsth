@@ -1,0 +1,33 @@
+
+--
+-- STANDARD LIBRARY - MATH
+-- FIXED POINT TRIG
+-- NSTL TEMPLATE
+--
+-- Functions, with variants for each fixed point schema
+--	sin		Sine
+--	cos		Cosine
+--	cord	Dual sine & cosine. Sine in dest index 0, cosine in dest index 1
+--
+-- Functions expect input angles to be in the range [-2pi, 2pi]
+--
+
+-- 8 bit integer, 24 bit fractional
+external function _fxt.sin824 of i32 a returns i32;
+external function _fxt.cos824 of i32 a returns i32;
+external function _fxt.cord824 of i32 pointer dest, i32 a returns none;
+
+-- 16 bit integer, 16 bit fractional
+external function _fxt.sin1616 of i32 a returns i32;
+external function _fxt.cos1616 of i32 a returns i32;
+external function _fxt.cord1616 of i32 pointer dest, i32 a returns none;
+
+-- 24 bit integer, 8 bit fractional
+external function _fxt.sin248 of i32 a returns i32;
+external function _fxt.cos248 of i32 a returns i32;
+external function _fxt.cord248 of i32 pointer dest, i32 a returns none;
+
+-- 8 bit integer, 8 bit fractional
+external function _fxt.sin88 of i16 a returns i16;
+external function _fxt.cos88 of i16 a returns i16;
+external function _fxt.cord88 of i16 pointer dest, i16 a returns none;

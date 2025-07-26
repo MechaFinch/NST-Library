@@ -4,8 +4,8 @@
 ; Uses text drawing to do terminal things
 ; 
 
-%include "simvideo/gutil.asm" as gutil
-%include "simvideo/text.asm" as text
+%include "privgutil.asm" as gutil
+%include "privtext.asm" as text
 
 %define VBUFFER_START 0xF002_0000
 
@@ -24,6 +24,8 @@
 %define CHAR_TAB 0x09
 %define CHAR_NEWLINE 0x0A
 %define CHAR_ESCAPE 0x1B
+
+%PRIVILAGED
 
 current_state:		db STATE_NORMAL
 ansi_arg_0:			db 0
@@ -76,11 +78,16 @@ init_terminal:
 	MOV K, 8
 
 .bloop:
-	PUSH D
-	PUSH A
+	PUSHW D:A
+	PUSH CL
+	
+	PUSHW D:A
 	PUSH CL
 	CALL gutil.set_color
 	ADD SP, 5
+	
+	POP CL
+	POPW D:A
 	
 	INC C
 	ADD AL, 0x24
@@ -472,6 +479,7 @@ ansi_cursor_set_pos:
 .has_arg:
 	MOV AL, [ansi_arg_0]
 	MOV AH, [ansi_arg_1]
+	PSUB8 A, 0x0101
 
 	; erase cursor, move cursor, draw cursor
 .move_cursor:

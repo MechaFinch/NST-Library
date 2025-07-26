@@ -436,7 +436,7 @@ append:
 	
 	; do we have spare capacity
 	MOVW D:A, [J:I + VEC_TS_LEN_OFFS]
-	
+	; TODO
 	
 	POP J
 	POP I

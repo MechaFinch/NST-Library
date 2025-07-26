@@ -51,3 +51,5 @@ external function _util.mods8 of i8 a, i8 b returns i8;
 external function _util.mod16 of u16 a, u16 b returns u16;
 external function _util.mods16 of i16 a, i16 b returns i16;
 
+external function _util.buffer_screen of none returns none;
+external function _util.unbuffer_screen of none returns none;

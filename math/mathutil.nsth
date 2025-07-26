@@ -1,0 +1,16 @@
+
+--
+-- MATHUTIL
+--
+
+external function _mathutil.mulu32 of u32 a, u32 b returns u32;
+external function _mathutil.mulu32_high of u32 a, u32 b returns u32;
+external function _mathutil.muls32 of i32 a, i32 b returns i32;
+external function _mathutil.muls32_high of i32 a, i32 b returns i32;
+
+external function _mathutil.divu32 of u32 a, u32 b returns u32;
+external function _mathutil.remu32 of u32 a, u32 b returns u32;
+external function _mathutil.divs32 of i32 a, i32 b returns i32;
+external function _mathutil.rems32 of i32 a, i32 b returns i32;
+
+external function _mathutil.to_hex_string of u16 num returns u32;

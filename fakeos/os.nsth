@@ -4,9 +4,35 @@
 -- FAKEOS WRAPPERS
 --
 
+-- 
+-- FUNCTIONS
+--
+
 -- Init
 -- Initialize os (emulator)
 external function _os.init of ptr dram_start, u32 dram_size returns none;
+
+-- Get terminal position
+-- High byte = y, low byte = x
+external function _os.get_term_pos of none returns u16;
+
+-- Get terminal area parameters
+-- High word = origin
+-- Low word = size
+-- High byte = y
+-- Low byte = x
+external function _os.get_term_area of none returns u32;
+
+-- Gets the state of a key
+-- Nonzero if pressed
+external function _os.get_key_state of u8 key returns boolean;
+
+-- Gets the number of clock ticks counted.
+external function _os.get_time of none returns u32;
+
+--
+-- SYSTEM CALLS
+--
 
 -- Exit
 -- Exits the program.
