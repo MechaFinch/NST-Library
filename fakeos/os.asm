@@ -89,7 +89,7 @@ malloc:
 	PUSHW BP
 	MOVW BP, SP
 	
-	MOVW C:D, [BP + 8]
+	MOVW B:C, [BP + 8]
 	MOV A, OS_MALLOC
 	SYSCALL
 	
@@ -102,7 +102,7 @@ calloc:
 	PUSHW BP
 	MOVW BP, SP
 	
-	MOVW C:D, [BP + 8]
+	MOVW B:C, [BP + 8]
 	MOV A, OS_CALLOC
 	SYSCALL
 	
@@ -116,7 +116,7 @@ realloc:
 	MOVW BP, SP
 	PUSHW J:I
 	
-	MOVW C:D, [BP + 12]
+	MOVW B:C, [BP + 12]
 	MOVW J:I, [BP + 8]
 	MOV A, OS_REALLOC
 	SYSCALL
@@ -132,7 +132,7 @@ rcalloc:
 	MOVW BP, SP
 	PUSHW J:I
 	
-	MOVW C:D, [BP + 12]
+	MOVW B:C, [BP + 12]
 	MOVW J:I, [BP + 8]
 	MOV A, OS_RCALLOC
 	SYSCALL
@@ -147,7 +147,7 @@ free:
 	PUSHW BP
 	MOVW BP, SP
 	
-	MOVW C:D, [BP + 8]
+	MOVW B:C, [BP + 8]
 	MOV A, OS_FREE
 	SYSCALL
 	
@@ -162,7 +162,7 @@ open_file:
 	MOVW BP, SP
 	PUSHW J:I
 	
-	MOVW C:D, [BP + 8]
+	MOVW B:C, [BP + 8]
 	MOVW J:I, [BP + 12]
 	MOV A, OS_OPEN_FILE
 	SYSCALL
@@ -230,7 +230,8 @@ seek_file:
 	MOVW BP, SP
 	PUSHW J:I
 	
-	MOVW C:D, [BP + 8]
+	MOV D, [BP + 8]
+	MOV C, [BP + 10]
 	MOVW J:I, [BP + 12]
 	MOV A, OS_SEEK_FILE
 	SYSCALL
@@ -268,7 +269,8 @@ change_file_attr:
 	PUSHW BP
 	MOVW BP, SP
 	
-	MOVW C:D, [BP + 8]
+	MOV C, [BP + 10]
+	MOV D, [BP + 8]
 	MOV A, OS_SET_FILE_ATT
 	SYSCALL
 	MOVS [errno], A

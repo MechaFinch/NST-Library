@@ -42,17 +42,16 @@ a_char:
 	PUSH K
 	PUSH L
 	
-	; compute character pointer to A:B
-	MOVZ B, [BP + 8]
-	SHL B, 3
-	LEA A:B, [CHARSET_START + B]
+	; compute character pointer to D:A
+	MOVZ A, [BP + 8]
+	SHL A, 3
+	LEA D:A, [CHARSET_START + A]
 	
-	; compute color data to C:D
-	MOV C, [BP + 9]
-	MOV DL, CH
-	MOV DH, DL
+	; compute color data to B:C
+	MOV B, [BP + 9]
+	MOV CL, BH
 	MOV CH, CL
-	;PSUB8 C, D
+	MOV BH, BL
 	
 	; compute screen pointer to BP
 	MOVZ I, [BP + 11] ; row
@@ -62,8 +61,8 @@ a_char:
 	LEA BP, [J:I + K + VBUFFER_START]
 	
 	; get character data
-	MOVW J:I, [A:B + 0]
-	MOVW L:K, [A:B + 4]
+	MOVW J:I, [D:A + 0]
+	MOVW L:K, [D:A + 4]
 	
 	; draw character
 	CALL sub_char
@@ -86,12 +85,11 @@ a_string:
 	PUSH K
 	PUSH L
 	
-	; compute color data to C:D
-	MOV C, [BP + 14]
-	MOV DL, CH
-	MOV DH, DL
+	; compute color data to B:C
+	MOV B, [BP + 14]
+	MOV CL, BH
 	MOV CH, CL
-	;PSUB8 C, D
+	MOV BH, BL
 	
 	; put counter & pointer on the stack
 	PUSH word [BP + 12]
@@ -108,11 +106,11 @@ a_string:
 	
 .loop:
 	; get character data
-	MOVW A:B, [SP]
-	LEA J:I, [A:B + 1]
+	MOVW D:A, [SP]
+	LEA J:I, [D:A + 1]
 	MOVW [SP], J:I
 	
-	MOVZ A, [A:B]
+	MOVZ A, [D:A]
 	
 	; is it a newline
 	CMP A, 0x0A
@@ -192,73 +190,73 @@ a_number:
 ; subroutine char
 ; draws a char
 ; INPUT
-; B		n/a (clobbered)
-; C		foreground in both CH and CL
-; D		background in both DH and DL
+; A		n/a (clobbered)
+; B		foreground in both CH and CL
+; C		background in both DH and DL
 ; IJKL	character data (clobbered)
 ; BP	screen pointer
 sub_char:
-	MOV B, 0
+	MOV A, 0
 
 	; is background transparent
-	CMP D, 0
+	CMP C, 0
 	JZ .start_tbg
 	
 	; is foreground transparent
-	CMP C, 0
+	CMP B, 0
 	JZ .loop_tfg
 
 	; no transparency
 .loop_nt:
 	PCMP8 I, 0
-	PCMOV8S [BP + B + 0], C
-	PCMOV8NS [BP + B + 0], D
+	PCMOV8S [BP + A + 0], B
+	PCMOV8NS [BP + A + 0], C
 	SHL I, 1
 	
 	PCMP8 J, 0
-	PCMOV8S [BP + B + 2], C
-	PCMOV8NS [BP + B + 2], D
+	PCMOV8S [BP + A + 2], B
+	PCMOV8NS [BP + A + 2], C
 	SHL J, 1
 	
 	PCMP8 K, 0
-	PCMOV8S [BP + B + 4], C
-	PCMOV8NS [BP + B + 4], D
+	PCMOV8S [BP + A + 4], B
+	PCMOV8NS [BP + A + 4], C
 	SHL K, 1
 	
 	PCMP8 L, 0
-	PCMOV8S [BP + B + 6], C
-	PCMOV8NS [BP + B + 6], D
+	PCMOV8S [BP + A + 6], B
+	PCMOV8NS [BP + A + 6], C
 	SHL L, 1
 	
-	ADD B, COLS_PIXELS
-	CMP B, (COLS_PIXELS * 8)
+	ADD A, COLS_PIXELS
+	CMP A, (COLS_PIXELS * 8)
 	JNE .loop_nt
 	RET
 	
 	; transparent background
 .start_tbg:
-	CMP C, 0
+	CMP B, 0
 	JZ .no_draw
 	
 .loop_tbg:
 	PCMP8 I, 0
-	PCMOV8S [BP + B + 0], C
+	PCMOV8S [BP + A + 0], B
 	SHL I, 1
 	
 	PCMP8 J, 0
-	PCMOV8S [BP + B + 2], C
+	PCMOV8S [BP + A + 2], B
 	SHL J, 1
 	
 	PCMP8 K, 0
-	PCMOV8S [BP + B + 4], C
+	PCMOV8S [BP + A + 4], B
 	SHL K, 1
 	
 	PCMP8 L, 0
-	PCMOV8S [BP + B + 6], C
+	PCMOV8S [BP + A + 6], B
 	SHL L, 1
 	
-	ADD B, COLS_PIXELS
-	CMP B, (COLS_PIXELS * 8)
+	ADD A, COLS_PIXELS
+	CMP A, (COLS_PIXELS * 8)
 	JNE .loop_tbg
 .no_draw:
 	RET
@@ -266,22 +264,22 @@ sub_char:
 	; transparent foreground
 .loop_tfg:
 	PCMP8 I, 0
-	PCMOV8NS [BP + B + 0], D
+	PCMOV8NS [BP + A + 0], C
 	SHL I, 1
 	
 	PCMP8 J, 0
-	PCMOV8NS [BP + B + 2], D
+	PCMOV8NS [BP + A + 2], C
 	SHL J, 1
 	
 	PCMP8 K, 0
-	PCMOV8NS [BP + B + 4], D
+	PCMOV8NS [BP + A + 4], C
 	SHL K, 1
 	
 	PCMP8 L, 0
-	PCMOV8NS [BP + B + 6], D
+	PCMOV8NS [BP + A + 6], C
 	SHL L, 1
 	
-	ADD B, COLS_PIXELS
-	CMP B, (COLS_PIXELS * 8)
+	ADD A, COLS_PIXELS
+	CMP A, (COLS_PIXELS * 8)
 	JNE .loop_tfg
 	RET

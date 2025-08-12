@@ -95,74 +95,67 @@ syscall_defer:
 
 ; 0010 Memory Allocate
 syscall_memory_allocate:
-	PUSH C
+	PUSHW B:C
 	
-	PUSH C
-	PUSH D
+	PUSHW B:C
 	CALL dma.malloc
 	ADD SP, 4
 	
-	POP C
+	POPW B:C
 	RET
 
 
 
 ; 0011 Clear Allocate
 syscall_clear_allocate:
-	PUSH C
+	PUSHW B:C
 	
-	PUSH C
-	PUSH D
+	PUSHW B:C
 	CALL dma.calloc
 	ADD SP, 4
 	
-	POP C
+	POPW B:C
 	RET
 
 
 
 ; 0012 Re-Allocate
 syscall_re_allocate:
-	PUSH C
+	PUSHW B:C
 	
-	PUSH C
-	PUSH D
-	PUSH J
-	PUSH I
+	PUSHW B:C
+	PUSHW J:I
 	CALL dma.realloc
 	ADD SP, 8
 	
-	POP C
+	POPW B:C
 	RET
 
 
 
 ; 0013 Clear Re-Allocate
 syscall_clear_re_allocate:
-	PUSH C
+	PUSHW B:C
 	
-	PUSH C
-	PUSH D
-	PUSH J
-	PUSH I
+	PUSHW B:C
+	PUSHW J:I
 	CALL dma.rcalloc
 	ADD SP, 8
 	
-	POP C
+	POPW B:C
 	RET
 
 
 
 ; 0014 Free
 syscall_free:
-	PUSH C
+	PUSHW B:C
 	
-	PUSH C
-	PUSH D
+	PUSHW B:C
 	CALL dma.free
 	ADD SP, 4
 	
-	POP C
+	POPW B:C
 	RET
 
 

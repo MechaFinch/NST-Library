@@ -145,7 +145,8 @@ mulu1616:
 	CALL util.mulu32
 	ADD SP, 8
 	
-	MOVW D:A, C:D
+	MOV A, D
+	MOV D, C
 	RET
 
 ; i32 muls1616(i32 a, i32 b)
@@ -157,7 +158,8 @@ muls1616:
 	CALL util.muls32
 	ADD SP, 8
 	
-	MOVW D:A, C:D
+	MOV A, D
+	MOV D, C
 	RET
 
 divu1616:

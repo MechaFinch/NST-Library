@@ -177,6 +177,7 @@ cos88:
 	PUSH word [SP + 8]
 	CALL cord88
 	POP B		; get a out of the way
-	POPW A:B	; get cos(a) in A, B = sin(a) but we don't care
+	POP B		; get cos(a) in A, B = sin(a) but we don't care
+	POP A
 	RET
 
