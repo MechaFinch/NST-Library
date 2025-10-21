@@ -37,10 +37,8 @@ a_char:
 	CMP byte [BP + 12], COLS_CHARS
 	JGE .fret
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; compute character pointer to D:A
 	MOVZ A, [BP + 8]
@@ -67,10 +65,8 @@ a_char:
 	; draw character
 	CALL sub_char
 	
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 .fret:
 	POP BP
 	RET
@@ -80,10 +76,8 @@ a_char:
 a_string:
 	PUSH BP
 	MOV BP, SP
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; compute color data to B:C
 	MOV B, [BP + 14]
@@ -94,8 +88,7 @@ a_string:
 	; put counter & pointer on the stack
 	PUSH word [BP + 12]
 	PUSH word [BP + 12]
-	PUSH word [BP + 10]
-	PUSH word [BP + 8]
+	PUSHW ptr [BP + 8]
 	
 	; compute screen pointer to BP
 	MOVZ I, [BP + 16] ; row
@@ -141,10 +134,8 @@ a_string:
 	
 	ADD SP, 8
 	
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	POP BP
 	RET
 
@@ -155,10 +146,8 @@ a_number:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; make sure base is positive
 	CMP byte [BP + 12], 0
@@ -178,10 +167,8 @@ a_number:
 	; print digits
 	
 .ret:
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	POP BP
 	RET
 

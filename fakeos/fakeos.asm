@@ -175,10 +175,8 @@ syscall_close_file:
 ; 0022 Read File
 syscall_read_file:
 	PUSH C
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; check special case file handles
 	CMP D, 3
@@ -202,10 +200,8 @@ syscall_read_file:
 .ret_ok:
 	MOV B, 0
 .ret:
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	POP C
 	RET
 
@@ -259,8 +255,7 @@ read_file_terminal:
 	
 .term_read_get:
 	; a char is available, read it
-	PUSH D
-	PUSH A
+	PUSHW D:A
 	
 	MOVZ D, [hand.char_buf_read_index]
 	MOV AL, [L:K + D]
@@ -306,8 +301,7 @@ read_file_terminal:
 	
 	; interrupts are not enabled for this opeartion as this code is not re-entrant
 	PUSH A
-	PUSH B
-	PUSH C
+	PUSHW B:C
 	AND AL, 0x7F
 	PUSH AL
 	CALL term.send_character
@@ -316,15 +310,13 @@ read_file_terminal:
 	; ZF clear if was escape sequence and ansi not included in echo
 	AND AL, [stdio_state_include_ansi]
 	
-	POP C
-	POP B
+	POPW B:C
 	POP A
 	
 	JZ .read_no_echo
 	
 	; don't include char in input
-	POP A
-	POP D
+	POPW D:A
 	JMP .term_read_loop
 	
 .read_no_echo:
@@ -340,8 +332,7 @@ read_file_terminal:
 	JNE .read_not_backspace
 	
 	; backspace. decrement buffer index
-	POP A
-	POP D
+	POPW D:A
 	
 	; make sure there's stuff to delete
 	CMP D, 0
@@ -350,14 +341,9 @@ read_file_terminal:
 	JZ .term_read_loop
 
 .term_backspace_has_stuff:	
-	DEC I	; dec write addr
-	DCC J
-	
-	DEC A	; dec amount read
-	DCC D
-	
-	INC C	; inc amount to read
-	ICC B
+	DECW J:I	; dec write addr
+	DECW D:A	; dec amount read
+	INCW B:C	; inc amount to read
 	
 	JMP .term_read_loop
 	
@@ -368,11 +354,8 @@ read_file_terminal:
 	; newline. stop reading additional stuff
 	MOV [J:I], AL
 	
-	POP A
-	POP D
-	
-	INC A	; inc readd addr
-	ICC D	; write addr not inc as no more write
+	POPW D:A
+	INCW D:A	; inc readd addr
 	
 	MOVW B:C, 0	; no more write
 	JMP .term_read_loop
@@ -381,17 +364,11 @@ read_file_terminal:
 .ignore_special:
 	MOV [J:I], AL
 
-	POP A
-	POP D
+	POPW D:A
 	
-	INC I		; inc write addr
-	ICC J
-	
-	INC A		; inc amount read
-	ICC D
-	
-	DEC C		; dec amount to read
-	DCC B
+	INCW J:I	; inc write addr
+	INCW D:A	; inc amount read
+	DECW B:C	; dec amount to read
 	
 	JMP .term_read_loop
 
@@ -436,14 +413,9 @@ read_file_file:
 	
 	; include in output
 	MOV [J:I], AL
-	INC I
-	ICC J
-	
-	INC K
-	ICC L
-	
-	DEC C
-	DCC B
+	INCW J:I
+	INCW L:K
+	DECW B:C
 	
 	; continue if not newline
 	CMP AL, CHAR_NEWLINE
@@ -460,10 +432,8 @@ read_file_file:
 ; 0023 Write File
 syscall_write_file:
 	PUSH C
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; check special case file handles
 	CMP D, 3
@@ -487,23 +457,17 @@ syscall_write_file:
 .more_to_write:
 	; send char
 	CALL enable_interrupts	; allow interrupts during long operations
-	PUSH B
-	PUSH C
+	PUSHW B:C
 	PUSH byte [J:I]
 	CALL term.send_character
 	ADD SP, 1
-	POP C
-	POP B
+	POPW B:C
 	CALL disable_interrupts
 	
-	INC I	; inc buffer ptr
-	ICC J
+	INCW J:I	; inc buffer ptr
+	INCW L:K	; inc number printed
+	DECW B:C	; dec number to print
 	
-	INC K	; inc number printed
-	ICC L
-	
-	DEC C	; dec number to print
-	DCC B
 	JMP .print_loop
 
 .none_to_write:
@@ -517,10 +481,8 @@ syscall_write_file:
 	MOV B, -1
 	
 .ret:
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	POP C
 	RET
 

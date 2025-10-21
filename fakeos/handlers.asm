@@ -5,6 +5,7 @@
 
 %include "fakeos.asm" as os
 %include "terminal.asm" as term
+%include "faults.asm" as faults
 
 %define KEY_BUFFER			0xF000_0000
 %define KEYCODE_SHIFT		0x10
@@ -29,7 +30,7 @@ char_buf_available:		db 0
 
 key_state_table:	repeat 256, db 0
 
-rtc_ticks: dp 0
+rtc_ticks: 	dp 0
 
 ; keydown
 ; ISR for key pressed
@@ -206,9 +207,7 @@ keyup:
 ; rtc
 ; Real Time Clock
 rtc:
-	MOVW BP, rtc_ticks
-	INC word [BP]
-	ICC word [BP + 2]
+	INCW ptr [rtc_ticks]	; increment rtc
 	IRET
 
 
@@ -216,16 +215,19 @@ rtc:
 ; segfault
 ; ISR for segmentation fault
 segfault:
+	PUSHA
 	MOV A, 0x23
 	MOV D, 1
 	MOVW B:C, string_segfault_after - string_segfault
 	MOVW J:I, string_segfault
 	INT 0x20
+	POPA
+	CALL faults.report_state
 .end:
 	HLT
 	JMP .end
 
-string_segfault: db 0x1B, "[0m", 0x1B, "[HSEGMENTATION FAULT"
+string_segfault: db 0x1B, "[0m", 0x1B, "[2J", 0x1B, "[HSEGMENTATION FAULT"
 string_segfault_after:
 
 
@@ -233,33 +235,57 @@ string_segfault_after:
 ; de
 ; decoding error
 de:
+	PUSHA
+	; trap or error
+	MOVW D:A, [SP + 16 + 12]
+	CMP byte [D:A], 0
+	JNZ .error
+
+.trap:
+	MOV A, 0x23
+	MOV D, 1
+	MOVW B:C, string_trap_after - string_trap
+	MOVW J:I, string_trap
+	INT 0x20
+	JMP .report
+	
+.error:
 	MOV A, 0x23
 	MOV D, 1
 	MOVW B:C, string_de_after - string_de
 	MOVW J:I, string_de
 	INT 0x20
+	
+.report:
+	POPA
+	CALL faults.report_state
 .end:
 	HLT
 	JMP .end
 
-string_de: db 0x1B, "[0m", 0x1B, "[HDECODING ERROR"
+string_de: db 0x1B, "[0m", 0x1B, "[2J", 0x1B, "[HDECODING ERROR"
 string_de_after:
+string_trap: db 0x1B, "[0m", 0x1B, "[2J", 0x1B, "[HTRAP"
+string_trap_after:
 
 
 
 ; gpf
 ; general protection fault
 gpf:
+	PUSHA
 	MOV A, 0x23
 	MOV D, 1
 	MOVW B:C, string_gpfault_after - string_gpfault
 	MOVW J:I, string_gpfault
 	INT 0x20
+	POPA
+	CALL faults.report_state
 .end:
 	HLT
 	JMP .end
 
-string_gpfault: db 0x1B, "[0m", 0x1B, "[HGENERAL PROTECTION FAULT"
+string_gpfault: db 0x1B, "[0m", 0x1B, "[2J", 0x1B, "[HGENERAL PROTECTION FAULT"
 string_gpfault_after:
 
 
@@ -267,16 +293,19 @@ string_gpfault_after:
 ; mpf
 ; memory protection fault
 mpf:
+	PUSHA
 	MOV A, 0x23
 	MOV D, 1
 	MOVW B:C, string_mpfault_after - string_mpfault
 	MOVW J:I, string_mpfault
 	INT 0x20
+	POPA
+	CALL faults.report_state
 .end:
 	HLT
 	JMP .end
 
-string_mpfault: db 0x1B, "[0m", 0x1B, "[HMEMORY PROTECTION FAULT"
+string_mpfault: db 0x1B, "[0m", 0x1B, "[2J", 0x1B, "[HMEMORY PROTECTION FAULT"
 string_mpfault_after:
 
 

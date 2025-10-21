@@ -1,0 +1,57 @@
+
+--
+-- STANDARD LIBRARY - MEMORY
+-- HASH TABLE
+-- NSTL TEMPLATE
+--
+
+-- Exported type
+type hashtable_t is hashtable_s pointer;
+
+-- General notes
+-- A 'hasher' is a function with the signature
+--		function hasher of ptr key returns u16
+-- which returns the hash of the given key
+-- A 'comparer' is a function with the signature
+--		function comparer of ptr k1, ptr k2 returns boolean
+-- which returns true if the keys match and false otherwise
+
+-- Internal structures
+-- Hashtables are structured as a static array of 2^n buckets, each of which contains a linked
+-- list of entries in the bucket. The hash of the key of the entry is used to choose its bucket.
+type hashtable_s is structure of
+	bucket_mask is u16,
+	bucket_array is hashtable_entry_s pointer pointer,
+	hasher is ptr,
+	comparer is ptr
+end type
+
+type hashtable_entry_s is structure of
+	key is ptr,
+	value is ptr,
+	next is hashtable_entry_s pointer
+end type
+
+
+
+-- Create
+-- Creates a hash table with 2^n buckets, max n for 2^n <= max_buckets
+-- Uses the given hashing function
+external function _hashtable.create of u16 max_buckets, ptr hasher, ptr comparer returns hashtable_t;
+
+-- Destroy
+-- Destroys the hash table
+-- Does not destroy key or value contents
+external function _hashtable.destroy of hashtable_t table returns none;
+
+-- Put
+-- Places a value in the table
+external function _hashtable.put of hashtable_t table, ptr key, ptr value returns none;
+
+-- Get
+-- Retrieve a value from the table, or zero if not found
+external function _hashtable.get of hashtable_t table, ptr key returns ptr;
+
+-- Remove
+-- Remove a value from the table. The removed value is returned, or zero if not present.
+external function _hashtable.remove of hashtable_t table, ptr key returns ptr;

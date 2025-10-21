@@ -1,0 +1,179 @@
+
+--
+-- Hashtable
+-- NSTL implementation
+--
+
+library _os from "fakeos/os";
+
+-- Create
+-- Creates a hash table with 2^n buckets, max n for 2^n <= max_buckets
+-- Uses the given hashing function
+function create of u16 max_buckets, ptr hasher, ptr comparer returns hashtable_t begin
+	-- Determine number of buckets
+	variable buckets is u16 gets 1;
+	
+	while buckets <= max_buckets do
+		buckets gets buckets << 1;
+	end while
+	
+	buckets gets buckets >> 1;
+	
+	-- Create table structure
+	variable table is hashtable_t gets (call _os.malloc with sizeof hashtable_s);
+	
+	table.bucket_mask gets buckets - 1;
+	table.bucket_array gets (call _os.malloc with (sizeof ptr) * (buckets as u32));
+	table.hasher gets hasher;
+	table.comparer gets comparer;
+	
+	-- Mark buckets as empty
+	for i is u16 gets 0; i < buckets; i gets i + 1 do
+		table.bucket_array index i gets 0;
+	end for
+	
+	return table;
+end function
+
+
+
+-- Destroy
+-- Destroys the hash table
+-- Does not destroy key or value contents
+function destroy of hashtable_t table returns none begin
+	-- destroy bucket entries
+	for i is u16 gets 0; i <= (table.bucket_mask as u16); i gets i + 1 do
+		call destroy_entry with table.bucket_array index i;
+	end for
+	
+	-- destroy table
+	call _os.free with table;
+end function
+
+-- Destroys an entry
+function destroy_entry of hashtable_entry_s pointer entry begin
+	if entry = 0 then
+		return;
+	end if
+	
+	-- free next in list
+	call destroy_entry with entry.next;
+	
+	-- free entry
+	call _os.free with entry;
+end function
+
+
+
+-- Find
+-- Find the entry for a key
+function find of hashtable_t table, ptr key, boolean create returns hashtable_entry_s pointer begin
+	-- Hash the key
+	variable hash is u16 gets (call table.hasher with key);
+	
+	-- Index into table
+	variable entry is hashtable_entry_s pointer gets table.bucket_array index (hash and table.bucket_mask);
+	
+	-- Find slot in list if key already used
+	while entry != 0 do
+		-- fast match check
+		variable matches is boolean gets (entry.key = key) as boolean;
+		
+		if not matches then
+			-- slow match check
+			matches gets (call table.comparer with entry.key, key);
+		end if
+		
+		-- did we match
+		if matches then
+			return entry;
+		end if
+		
+		entry gets entry.next;
+	end while
+	
+	-- Key not in list, add entry if applicable
+	if not create then
+		return 0;
+	else
+		entry gets (call _os.malloc with sizeof hashtable_entry_s);				-- new entry
+		entry.next gets table.bucket_array index (hash and table.bucket_mask);	-- link to existing list
+		table.bucket_array index (hash and table.bucket_mask) gets entry;		-- make head of list
+		
+		return entry;
+	end if
+end function
+
+
+
+-- Put
+-- Places a value in the table
+function put of hashtable_t table, ptr key, ptr value returns none begin
+	variable entry is hashtable_entry_s pointer gets (call find with table, key, true);
+	entry.key gets key;
+	entry.value gets value;
+end function
+
+
+
+-- Get
+-- Retrieve a value from the table, or zero if not found
+function get of hashtable_t table, ptr key returns ptr begin
+	-- Get entry
+	variable entry is hashtable_entry_s pointer gets (call find with table, key, false);
+	
+	if entry = 0 then
+		return 0;
+	else
+		return entry.value;
+	end if
+end function
+
+
+
+-- Remove
+-- Remove a value from the table. The removed value is returned, or zero if not present.
+function remove of hashtable_t table, ptr key returns ptr begin
+	-- Hash the key
+	variable hash is u16 gets (call table.hasher with key);
+	
+	-- Index into table
+	variable previous_entry is hashtable_entry_s pointer gets 0;
+	variable current_entry is hashtable_entry_s pointer gets table.bucket_array index (hash and table.bucket_mask);
+	
+	-- Find in list
+	while current_entry != 0 do
+		-- fast match check
+		variable matches is boolean gets (current_entry.key = key) as boolean;
+		
+		if not matches then
+			-- slow match check
+			matches gets (call table.comparer with current_entry.key, key);
+		end if
+		
+		-- did we match
+		if matches then
+			-- yes, remove
+			-- get value
+			variable value is ptr gets current_entry.value;
+			
+			-- extract from list
+			if previous_entry = 0 then
+				table.bucket_array index (hash and table.bucket_mask) gets current_entry.next;
+			else
+				previous_entry.next gets current_entry.next;
+			end if
+			
+			-- destroy entry
+			call _os.free with current_entry;
+			
+			return value;
+		end if
+		
+		previous_entry gets current_entry;
+		current_entry gets current_entry.next;
+	end while
+	
+	-- not found
+	return 0;
+end function

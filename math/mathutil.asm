@@ -31,47 +31,36 @@ mulu32_high:
 mulu32:
 	PUSH BP
 	MOV BP, SP
+	PUSHW J:I
 	
-	PUSH I
-	PUSH J
+	; original implementation: 16 instructions, missed uppermost carries
+	; 2nd implementation: 14 instructions, missed uppermost carries
+	; this implementation: 14 instructions, includes uppermost carries
+	; low dword = (alow*blow) + (alow*bhigh lower << 16) + (ahigh*blow lower << 16)
+	; high dword = (ahigh*bhigh) + (alow*bhigh upper) + (ahigh*blow upper) + carries
 	
-	; alow	[BP + 8]
-	; ahigh	[BP + 10]
-	; blow	[BP + 12]
-	; bhigh	[BP + 14]
-	
-	; old implemenation 16 instructions
-	; new implementation 14 insturctions
-	; by eliminating two MOVs
-	
-	MOV A, [BP + 8]		; A = alow
-	MOV C, [BP + 10]	; C = ahigh
-	MOV I, [BP + 12]	; I = blow
-	MOV D, [BP + 14]	; D = bhigh
-	
-	; low/high pairs, sum into JI
-	MULH D:A, D
-	MULH J:I, C
-	
-	ADD I, A
-	ADC J, D
-	
-	; low * low into D:A
-	MOV A, [BP + 8]
+	MOV A, [BP + 8]		; D:A = alow*blow
+	MOV I, A
 	MULH D:A, [BP + 12]
-	
-	; high * high into B:C
+	MOV C, [BP + 10]	; B:C = ahigh*bhigh
 	MULH B:C, [BP + 14]
 	
-	; add low/high sum into B:C:D:A
-	ADD D, I
+	MULH J:I, [BP + 14]	; J:I = alow*bhigh
+	
+	ADD D, I	; add to result
 	ADC C, J
 	ICC B
 	
-	; return
-	POP J
-	POP I
-	POP BP
+	MOV I, [BP + 10]	; J:I = ahigh*blow
+	MULH J:I, [BP + 12]
+	
+	
+	ADD D, I	; add to result
+	ADC C, J
+	ICC B
+	
+	POPW J:I
+	POPW BP
 	RET
 
 
@@ -94,81 +83,67 @@ muls32_high:
 muls32:
 	PUSH BP
 	MOV BP, SP
+	PUSHW J:I
 	
-	PUSH I
-	PUSH J
-	
-	; alow	[BP + 8]
-	; ahigh	[BP + 10]
-	; blow	[BP + 12]
-	; bhigh	[BP + 14]
-	
-	; make arguments positive, multiply, fix sign
-	; check A
+	; make arguments positive
+	; B = 1 if result negative
 	MOV B, 0
 	CMP byte [BP + 11], 0
 	JGE .a_pos
 	
-	NOT word [BP + 10]
-	NEG word [BP + 8]
-	ICC word [BP + 10]
+	MOVW D:A, 0
+	SUBW D:A, [BP + 8]
+	MOVW [BP + 8], D:A
 	MOV B, 1
 
 .a_pos:
 	CMP byte [BP + 15], 0
 	JGE .b_pos
 	
-	NOT word [BP + 14]
-	NEG word [BP + 12]
-	ICC word [BP + 14]
+	MOVW D:A, 0
+	SUBW D:A, [BP + 12]
+	MOVW [BP + 12], D:A
 	XOR BL, 1
 
 .b_pos:
-	PUSH B ; popped into I
+	PUSH B
 	
-	; copied from unsigned version
-	MOV A, [BP + 8]		; A = alow
-	MOV C, [BP + 10]	; C = ahigh
-	MOV I, [BP + 12]	; I = blow
-	MOV D, [BP + 14]	; D = bhigh
-	
-	; low/high pairs, sum into JI
-	MULH D:A, D
-	MULH J:I, C
-	
-	ADD I, A
-	ADC J, D
-	
-	; low * low into D:A
-	MOV A, [BP + 8]
+	; multiply, copied from mulu32
+	MOV A, [BP + 8]		; D:A = alow*blow
+	MOV I, A
 	MULH D:A, [BP + 12]
-	
-	; high * high into B:C
+	MOV C, [BP + 10]	; B:C = ahigh*bhigh
 	MULH B:C, [BP + 14]
 	
-	; add low/high sum into B:C:D:A
-	ADD D, I
+	MULH J:I, [BP + 14]	; J:I = alow*bhigh
+	
+	ADD D, I	; add to result
 	ADC C, J
 	ICC B
 	
-	; correct sign
+	MOV I, [BP + 10]	; J:I = ahigh*blow
+	MULH J:I, [BP + 12]
+	
+	
+	ADD D, I	; add to result
+	ADC C, J
+	ICC B
+	
+	; correct sign of result
 	POP I
 	CMP I, 0
-	JZ .r_pos
+	JE .r_pos
 	
 	NOT B
 	NOT C
 	NOT D
 	NEG A
 	ICC D
-	ICC C
-	ICC B
-
-	; return
+	ICCW B:C
+	
 .r_pos:
-	POP J
-	POP I
-	POP BP
+	POPW J:I
+	POPW BP
 	RET
 
 

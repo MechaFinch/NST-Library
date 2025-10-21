@@ -21,32 +21,21 @@ set_palette:
 	MOVW BP, SP
 	
 	PUSH I
-	PUSH L
-	PUSH K
 	
-	MOVW L:K, PALETTE_START
+	MOVW D:A, PALETTE_START
 	MOVW B:C, [BP + 8]
 	MOV I, (256 * 3) / 16
 	
 .loop:
-	MOVW D:A, [B:C + 0]
-	MOVW [L:K + 0], D:A
-	MOVW D:A, [B:C + 4]
-	MOVW [L:K + 4], D:A
-	MOVW D:A, [B:C + 8]
-	MOVW [L:K + 8], D:A
-	MOVW D:A, [B:C + 12]
-	MOVW [L:K + 12], D:A
+	STIW D:A, ptr [B:C + 0]
+	STIW D:A, ptr [B:C + 4]
+	STIW D:A, ptr [B:C + 8]
+	STIW D:A, ptr [B:C + 12]
 	
-	ADD K, 16
-	ICC L
-	ADD C, 16
-	ICC B
+	ADDW B:C, 16
 	DEC I
 	JNZ .loop
-
-	POP K
-	POP L
+	
 	POP I
 	POP BP
 	RET
@@ -77,8 +66,7 @@ clear_screen:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
+	PUSHW J:I
 	
 	; D:A = data
 	; B:C = counter
@@ -91,42 +79,43 @@ clear_screen:
 	MOVW J:I, VBUFFER_START
 
 .loop:
-	MOVW [J:I + 0], D:A
-	MOVW [J:I + 4], D:A
-	MOVW [J:I + 8], D:A
-	MOVW [J:I + 12], D:A
-	MOVW [J:I + 16], D:A
-	MOVW [J:I + 20], D:A
-	MOVW [J:I + 24], D:A
-	MOVW [J:I + 28], D:A
+	STIW J:I, D:A	; (groups of 16 bytes)
+	STIW J:I, D:A
+	STIW J:I, D:A
+	STIW J:I, D:A
 	
-	ADD I, 32
-	ICC J
-	SUB C, 32
-	DCC B
+	STIW J:I, D:A
+	STIW J:I, D:A
+	STIW J:I, D:A
+	STIW J:I, D:A
 	
+	STIW J:I, D:A
+	STIW J:I, D:A
+	STIW J:I, D:A
+	STIW J:I, D:A
+	
+	STIW J:I, D:A
+	STIW J:I, D:A
+	STIW J:I, D:A
+	STIW J:I, D:A
+	
+	SUBW B:C, 64
 	JNZ .loop
-	CMP C, 0
-	JNZ .loop
 	
-	POP J
-	POP I
-	
+	POPW J:I
 	POP BP
 	RET
 	
 
 
 ; scroll_up(u8 n, u8 bgc): none
-; scrolls the screen down by n pixels
+; scrolls the screen up by n pixels
 scroll_up:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; Copy data with offset (n * -320)
 	; Start at VBUFFER_START + |offset| (offset always negative)
@@ -148,8 +137,7 @@ scroll_up:
 	; dest = VBUFFER_START
 	MOVW J:I, VBUFFER_START
 	MOVW L:K, J:I
-	SUB I, A
-	SBB J, D
+	SUBW J:I, D:A
 	
 	; compute copy counter to B:C
 	MOV C, 240
@@ -162,39 +150,34 @@ scroll_up:
 	
 	; copy
 .copyloop:
-	MOVW D:A, [J:I + 0]
-	MOVW [L:K + 0], D:A
-	MOVW D:A, [J:I + 4]
-	MOVW [L:K + 4], D:A
-	MOVW D:A, [J:I + 8]
-	MOVW [L:K + 8], D:A
-	MOVW D:A, [J:I + 12]
-	MOVW [L:K + 12], D:A
-	MOVW D:A, [J:I + 16]
-	MOVW [L:K + 16], D:A
-	MOVW D:A, [J:I + 20]
-	MOVW [L:K + 20], D:A
-	MOVW D:A, [J:I + 24]
-	MOVW [L:K + 24], D:A
-	MOVW D:A, [J:I + 28]
-	MOVW [L:K + 28], D:A
+	STIW L:K, ptr [J:I + 0]
+	STIW L:K, ptr [J:I + 4]
+	STIW L:K, ptr [J:I + 8]
+	STIW L:K, ptr [J:I + 12]
 	
-	ADD I, 32
-	ICC J
-	ADD K, 32
-	ICC L
+	STIW L:K, ptr [J:I + 16]
+	STIW L:K, ptr [J:I + 20]
+	STIW L:K, ptr [J:I + 24]
+	STIW L:K, ptr [J:I + 28]
 	
-	SUB C, 32
-	DCC B
-	JNZ .copyloop
-	CMP C, 0
+	STIW L:K, ptr [J:I + 32]
+	STIW L:K, ptr [J:I + 36]
+	STIW L:K, ptr [J:I + 40]
+	STIW L:K, ptr [J:I + 44]
+	
+	STIW L:K, ptr [J:I + 48]
+	STIW L:K, ptr [J:I + 52]
+	STIW L:K, ptr [J:I + 56]
+	STIW L:K, ptr [J:I + 60]
+	
+	ADDW J:I, 64
+	SUBW B:C, 64
 	JNZ .copyloop
 	
 	; clear
 .clear:
 	; recover offset from J:I
-	SUB I, K
-	SBB J, L
+	SUBW J:I, L:K
 	
 	; get bgc
 	MOV AL, [BP + 9]
@@ -202,28 +185,31 @@ scroll_up:
 	MOV D, A
 	
 .clearloop:
-	MOVW [L:K + 0], D:A
-	MOVW [L:K + 4], D:A
-	MOVW [L:K + 8], D:A
-	MOVW [L:K + 12], D:A
-	MOVW [L:K + 16], D:A
-	MOVW [L:K + 20], D:A
-	MOVW [L:K + 24], D:A
-	MOVW [L:K + 28], D:A
+	STIW L:K, D:A
+	STIW L:K, D:A
+	STIW L:K, D:A
+	STIW L:K, D:A
 	
-	ADD K, 32
-	ICC L
+	STIW L:K, D:A
+	STIW L:K, D:A
+	STIW L:K, D:A
+	STIW L:K, D:A
 	
-	SUB I, 32
-	DCC J
+	STIW L:K, D:A
+	STIW L:K, D:A
+	STIW L:K, D:A
+	STIW L:K, D:A
+	
+	STIW L:K, D:A
+	STIW L:K, D:A
+	STIW L:K, D:A
+	STIW L:K, D:A
+	
+	SUBW J:I, 64
 	JNZ .clearloop
-	CMP I, 0
-	JNZ .clearloop
 	
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	
 	POP BP
 	RET
@@ -231,15 +217,13 @@ scroll_up:
 
 
 ; scroll_down(u8 n, u8 bgc): none
-; scrolls the screen up by n pixels
+; scrolls the screen down by n pixels
 scroll_down:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; Copy data with offset (n * 320)
 	; Start at VBUFFER_START + (320 * 240) - copysize - offset
@@ -257,12 +241,12 @@ scroll_down:
 	MULH D:A, 320
 	
 	; compute start
-	; source = VBUFFER_START + (320 * 240) - copysize - offset
-	; dest = VBUFFER_START + (320 * 240) - copysize
-	MOVW J:I, VBUFFER_START + (320 * 240) - 32
+	; source = VBUFFER_START + (320 * 240) - (offset + copysize)
+	; dest = VBUFFER_START + (320 * 240)
+	MOVW J:I, VBUFFER_START + (320 * 240)	; would subtract copysize here if no pre-decrement
 	MOVW L:K, J:I
-	SUB I, A
-	SBB J, D
+	SUBW J:I, D:A
+	SUBW J:I, 64
 	
 	; compute copy counter to B:C
 	MOV C, 240
@@ -275,40 +259,34 @@ scroll_down:
 	
 	; copy
 .copyloop:
-	MOVW D:A, [J:I + 0]
-	MOVW [L:K + 0], D:A
-	MOVW D:A, [J:I + 4]
-	MOVW [L:K + 4], D:A
-	MOVW D:A, [J:I + 8]
-	MOVW [L:K + 8], D:A
-	MOVW D:A, [J:I + 12]
-	MOVW [L:K + 12], D:A
-	MOVW D:A, [J:I + 16]
-	MOVW [L:K + 16], D:A
-	MOVW D:A, [J:I + 20]
-	MOVW [L:K + 20], D:A
-	MOVW D:A, [J:I + 24]
-	MOVW [L:K + 24], D:A
-	MOVW D:A, [J:I + 28]
-	MOVW [L:K + 28], D:A
+	DSTW L:K, ptr [J:I + 60]
+	DSTW L:K, ptr [J:I + 56]
+	DSTW L:K, ptr [J:I + 52]
+	DSTW L:K, ptr [J:I + 48]
 	
-	SUB I, 32
-	DCC J
-	SUB K, 32
-	DCC L
+	DSTW L:K, ptr [J:I + 44]
+	DSTW L:K, ptr [J:I + 40]
+	DSTW L:K, ptr [J:I + 36]
+	DSTW L:K, ptr [J:I + 32]
 	
-	SUB C, 32
-	DCC B
-	JNZ .copyloop
-	CMP C, 0
+	DSTW L:K, ptr [J:I + 28]
+	DSTW L:K, ptr [J:I + 24]
+	DSTW L:K, ptr [J:I + 20]
+	DSTW L:K, ptr [J:I + 16]
+	
+	DSTW L:K, ptr [J:I + 12]
+	DSTW L:K, ptr [J:I + 8]
+	DSTW L:K, ptr [J:I + 4]
+	DSTW L:K, ptr [J:I + 0]
+	
+	SUBW J:I, 64
+	SUBW B:C, 64
 	JNZ .copyloop
 	
 	; clear
 .clear:
-	; recover offset from L:K & J:I
-	MOVW D:A, L:K
-	SUB K, I
-	SBB L, J
+	; D:A = data
+	; J:I = #bytes
 	MOVW J:I, D:A
 	
 	; get bgc
@@ -317,28 +295,31 @@ scroll_down:
 	MOV D, A
 
 .clearloop:
-	MOVW [J:I + 0], D:A
-	MOVW [J:I + 4], D:A
-	MOVW [J:I + 8], D:A
-	MOVW [J:I + 12], D:A
-	MOVW [J:I + 16], D:A
-	MOVW [J:I + 20], D:A
-	MOVW [J:I + 24], D:A
-	MOVW [J:I + 28], D:A
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	DSTW L:K, D:A
 	
-	SUB I, 32
-	DCC J
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	DSTW L:K, D:A
 	
-	SUB K, 32
-	DCC L
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	DSTW L:K, D:A
+	
+	SUBW J:I, 64
 	JNZ .clearloop
-	CMP K, 0
-	JNZ .clearloop
 	
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	
 	POP BP
 	RET

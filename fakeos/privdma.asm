@@ -33,10 +33,8 @@ init:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 
 	; create initial block
 	MOVW J:I, [BP + 8]	; heap start
@@ -47,8 +45,7 @@ init:
 	MOVW B:C, 0
 	MOVW [J:I + FREE_HEADER_NEXT_OFFS], B:C
 	MOVW D:A, L:K
-	ADD A, HEAP_CONTROL_FREE_LIST_HEAD_OFFS - 4
-	ICC D
+	ADDW D:A, HEAP_CONTROL_FREE_LIST_HEAD_OFFS - 4
 	MOVW [J:I + FREE_HEADER_PREV_OFFS], D:A
 	MOVW [J:I + FREE_HEADER_SIZE], B:C
 	
@@ -57,18 +54,15 @@ init:
 	MOVW [L:K + HEAP_CONTROL_HEAP_SIZE_OFFS], D:A
 	MOVW [L:K + HEAP_CONTROL_ALLOCATED_BYTES_OFFS], B:C
 	MOVW [L:K + HEAP_CONTROL_ALLOCATED_BLOCKS_OFFS], B:C
-	INC C
+	INCW B:C
 	MOVW [L:K + HEAP_CONTROL_FREE_BLOCKS_OFFS], B:C
 	MOVW [L:K + HEAP_CONTROL_FREE_LIST_HEAD_OFFS], J:I
 	
-	SUB A, (FREE_HEADER_SIZE + 4)
-	DCC D
+	SUBW D:A, (FREE_HEADER_SIZE + 4)
 	MOVW [L:K + HEAP_CONTROL_FREE_BYTES_OFFS], D:A
 	
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	POP BP
 	RET
 
@@ -82,20 +76,15 @@ malloc:
 	
 	; 0 = no allocation
 	MOVW D:A, 0
-	CMP word [BP + 8], 0
-	JNZ .nonz
-	CMP word [BP + 10], 0
+	CMPW ptr [BP + 8], 0
 	JZ .fret
 	
 .nonz:
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; align (n in D:A)
-	PUSH word [BP + 10]
-	PUSH word [BP + 8]
+	PUSHW ptr [BP + 8]
 	CALL align
 	ADD SP, 4
 	
@@ -109,16 +98,11 @@ malloc:
 	AND CL, 0xFC	; B:C = size
 	AND L, 0x0003	; L = status
 	
-	CMP B, 0
-	JNZ .search_nonz
-	CMP C, 0
+	CMPW B:C, 0
 	JZ .search_end
 	
 .search_nonz:
-	CMP B, D
-	JB .search_next
-	JA .search_found
-	CMP C, A
+	CMPW B:C, D:A
 	JAE .search_found
 
 .search_next:
@@ -129,30 +113,24 @@ malloc:
 .search_found:
 	; downsize the block
 	; n and size aren't needed after, so not saved
-	PUSH D		; push n
-	PUSH A
+	PUSHW D:A	; push n
 	PUSH word 0	; push status
 	PUSH L
-	PUSH B		; push size
-	PUSH C
-	PUSH J
-	PUSH I
+	PUSHW B:C	; push size
+	PUSHW J:I
 	CALL downsize
 	ADD SP, 16
 	
 	; splice out of the free list
-	PUSH J
-	PUSH I
+	PUSHW J:I
 	CALL splice_out
 	ADD SP, 4
 	
 	; mark as allocated, mark next block
 	MOVW B:C, [J:I + FREE_HEADER_SIZE_STATUS_OFFS]	; next_header
 	AND CL, 0xFC
-	ADD C, 4
-	ICC B
-	ADD C, I
-	ADC B, J
+	ADDW B:C, 4
+	ADDW B:C, J:I
 	
 	MOV AL, 0x01
 	OR byte [J:I + FREE_HEADER_SIZE_STATUS_OFFS], AL	; current_block->size_status |= 1
@@ -166,10 +144,8 @@ malloc:
 	; extend heap
 	PUSH L
 	MOVW L:K, D:A	; L:K = n
-	ADD A, I		; current_block + n + 4
-	ADC D, J
-	ADD A, 4
-	ICC D
+	ADDW D:A, J:I	; current_block + n + 4
+	ADDW D:A, 4
 	
 	; set new_end_of_heap
 	MOVW B:C, 2
@@ -194,13 +170,10 @@ malloc:
 	
 .sret:
 	MOVW D:A, J:I	; return current_block + 4
-	ADD A, 4
-	ICC D
+	ADDW D:A, 4
 	
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	
 .fret:
 	POP BP
@@ -214,16 +187,13 @@ calloc:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	MOVW J:I, [BP + 8]
 	
 	; call malloc
-	PUSH J
-	PUSH I
+	PUSHW J:I
 	CALL malloc
 	ADD SP, 4
 	
@@ -233,18 +203,14 @@ calloc:
 	JMP .clearcmp
 .clear_loop:
 	MOVZ [B:C], L
-	ADD C, 4
-	ICC B
+	ADDW B:C, 4
 	
 .clearcmp:
-	SUB I, 4
-	DCC J
+	SUBW J:I, 4
 	JNS .clear_loop
 	
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	
 	POP BP
 	RET
@@ -257,21 +223,17 @@ realloc:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; D:A = new_size = align(n)
-	PUSH word [BP + 14]
-	PUSH word [BP + 12]
+	PUSHW ptr [BP + 12]
 	CALL align
 	ADD SP, 4
 	
 	; B:C = old_header = block - 4
 	MOVW B:C, [BP + 8]
-	SUB C, 4
-	DCC B
+	SUBW B:C, 4
 	
 	; J:I = old_size, K = old_status
 	MOVW J:I, [B:C]
@@ -280,23 +242,17 @@ realloc:
 	AND I, 0xFFFC
 	
 	; is size is unchanged, return. if old size is greater, downsize it
-	CMP J, D
-	JA .old_larger
-	JB .old_smaller
-	CMP I, A
+	CMPW J:I, D:A
 	JE .rblock
 	JB .old_smaller
 
 .old_larger:
 	; downsize(old_header, old_size, old_status, new_size)
-	PUSH D
-	PUSH A
+	PUSHW D:A
 	PUSH word 0
 	PUSH K
-	PUSH J
-	PUSH I
-	PUSH B
-	PUSH C
+	PUSHW J:I
+	PUSHW B:C
 	CALL downsize
 	ADD SP, 16
 	
@@ -306,40 +262,30 @@ realloc:
 
 .old_smaller:
 	; allocate new block
-	PUSH D
-	PUSH A
+	PUSHW D:A
 	CALL malloc
 	ADD SP, 4
 	
-	PUSH D ; save new block
-	PUSH A
+	PUSHW D:A	; save new block
 	
 	; copy data
 	; J:I = counter, L:K = source, D:A = dest, B:C = passthrough
 	MOVW L:K, [BP + 8]
 	JMP .copycmp
 .copyloop:
-	MOVW B:C, [L:K]
-	MOVW [D:A], B:C
+	LDIW [D:A], L:K
 	
-	ADD K, 4
-	ICC L
-	ADD A, 4
-	ICC D
+	ADDW D:A, 4
 	
 .copycmp:
-	SUB I, 4
-	DCC J
+	SUBW J:I, 4
 	JNS .copyloop
 	
-	POP A ; restore new block to return
-	POP D
+	POPW D:A	; restore new block to return
 	
 .ret:
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	
 	POP BP
 	RET
@@ -352,70 +298,47 @@ rcalloc:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
+	PUSHW J:I
 	
 	; J:I = new_size = align(n)
 	MOVW J:I, [BP + 12]
-	PUSH J
-	PUSH I
+	PUSHW J:I
 	CALL align
 	ADD SP, 4
 	
-	PUSH D	; save new_size
-	PUSH A
+	PUSHW D:A	; save new_size
 	
 	; B:C = old_size = [block - 4] & ~3
-	MOVW B:C, [BP + 8]
-	MOVW D:A, B:C
-	SUB C, 4
-	DCC B
-	MOVW B:C, [B:C]
+	MOVW D:A, [BP + 8]
+	MOVW B:C, [D:A - 4]
 	AND CL, 0xFC
 	
 	; D:A = new_block = realloc(block, n)
-	PUSH J	; push n
-	PUSH I
-	PUSH D	; push block
-	PUSH A
+	PUSHW J:I	; push n
+	PUSHW D:A	; push block
 	CALL realloc
 	ADD SP, 8
 	
-	POP I	; recover new_size
-	POP J
-	
-	PUSH D	; save new_block
-	PUSH A
+	POPW J:I	; recover new_size
+	PUSHW D:A	; save new_block
 	
 	; while old_size < new_size, clear new block
-	ADD A, C	; seek to end of old
-	ADC D, B
+	ADDW D:A, B:C	; seek to end of old
+	SUBW J:I, B:C	; how much do we clear
 	
-	SUB I, C	; how much do we clear
-	SBB J, B
-	
-	MOV K, 0
+	MOVW B:C, 0
 	JMP .cmp
 .copy:
-	MOVZ [D:A], K	; clear
-	
-	ADD A, 4		; inc ptr & dec counter
-	ICC D
+	STIW D:A, B:C	; clear w/ ptr increment
 	
 .cmp:
-	SUB I, 4
-	DCC J
+	SUBW J:I, 4
 	JNS .copy
 	
 .done:
-	POP A	; recover new_block
-	POP D
+	POPW D:A	; recover new_block
 	
-	POP K
-	POP J
-	POP I
-	
+	POPW J:I
 	POP BP
 	RET
 
@@ -427,14 +350,11 @@ free:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	MOVW J:I, [BP + 8]	; block header ptr
-	SUB I, 4
-	DCC J
+	SUBW J:I, 4
 	
 	; ensure block is allocated
 	CMP byte [J:I], 0
@@ -448,15 +368,13 @@ free:
 	
 	PUSH word 0	; push status
 	PUSH A
-	PUSH J		; push block header ptr
-	PUSH I
+	PUSHW J:I	; push block header ptr
 	CALL splice_in
 	ADD SP, 8
 	
 	; mark size @ end & clear next's prev alloc bit
 	MOVW D:A, J:I
-	ADD A, K
-	ADC D, L
+	ADDW D:A, L:K
 	MOVW [D:A], L:K
 	MOVW B:C, [D:A + 4]			; get next size/status
 	AND CL, 0xFD				; clear prev alloc bit
@@ -478,51 +396,36 @@ free:
 	NOT L
 	NEG K
 	DCC L
-	ADD K, I
-	ADC L, J
-	SUB K, 4
-	DCC L
+	ADDW L:K, J:I
+	SUBW L:K, 4
 	
-	PUSH A	; save
-	PUSH B
-	PUSH C
-	PUSH D
+	PUSHW D:A	; save
+	PUSHW B:C
 	
-	PUSH J	; push block
-	PUSH I
-	PUSH L	; push low_header
-	PUSH K
+	PUSHW J:I	; push block
+	PUSHW L:K	; push low_header
 	CALL merge
 	ADD SP, 8
 	
-	POP D
-	POP C
-	POP B
-	POP A
+	POPW B:C
+	POPW D:A
 	
 .no_prev_merge:
-	CMP B, 0		; is next block a real block
-	JB .ret
-	JA .next_merge
-	CMP C, 3
+	CMPW B:C, 3		; is next block a real block
 	JBE .ret
 	AND CL, 0x01	; is it free
 	JNZ .ret
 
 .next_merge:
 	; merge with next
-	PUSH D
-	PUSH A
-	PUSH L
-	PUSH K
+	PUSHW D:A
+	PUSHW L:K
 	CALL merge
 	ADD SP, 8
 	
 .ret:
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	
 	POP BP
 	RET
@@ -537,9 +440,7 @@ align:
 	
 	MOVW D:A, [BP + 8]
 	
-	CMP D, 0
-	JA .good
-	CMP A, 12
+	CMPW D:A, 12
 	JAE .good
 	
 	; < 12 = set to min size
@@ -554,8 +455,7 @@ align:
 	
 	; otherwise, align
 	AND AL, 0xFC
-	ADD A, 4
-	ICC D
+	ADDW D:A, 4
 
 .ok:
 	POP BP
@@ -571,8 +471,7 @@ downsize:
 	
 	; is there enough space for a new block
 	MOVW D:A, [BP + 12]	; D:A = new_block_size = old_size - new_size - 4
-	SUB A, [BP + 20]
-	SBB D, [BP + 22]
+	SUBW D:A, [BP + 20]
 	JNZ .ok
 	CMP A, 16
 	JAE .ok
@@ -583,13 +482,10 @@ downsize:
 
 .ok:
 	; there's enough space
-	SUB A, 4	; finish computing new_block_size
-	DCC D
+	SUBW D:A, 4	; finish computing new_block_size
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	MOVW L:K, D:A	; new_block_size
 	
@@ -601,37 +497,28 @@ downsize:
 	
 	; place new block
 	MOVW B:C, J:I	; header + new_size + 4
-	ADD C, [BP + 20]
-	ADC B, [BP + 20]
-	ADD C, 4
-	ICC B
+	ADDW B:C, [BP + 20]
+	ADDW B:C, 4
 	
 	; splice new block into free list
-	PUSH B
-	PUSH C
+	PUSHW B:C
 	
-	PUSH L
-	PUSH K
-	PUSH B
-	PUSH C
+	PUSHW L:K
+	PUSHW B:C
 	CALL splice_in
 	ADD SP, 8
 	
-	POP C
-	POP B
+	POPW B:C
 	
 	; update headers
-	ADD I, [BP + 12]	; header + old_size
-	ADC J, [BP + 14]
+	ADDW J:I, [BP + 12]	; header + old_size
 	
 	MOVW [J:I], L:K
 	MOVW D:A, [BP + 20]
 	MOVW [B:C - 4], D:A
 	
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	
 	POP BP
 	RET
@@ -644,21 +531,17 @@ merge:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	MOVW J:I, [BP + 8]	; low_header
 	MOVW L:K, [BP + 12]	; high_header
 
 	; splice them out of the free list
-	PUSH J
-	PUSH I
+	PUSHW J:I
 	CALL splice_out
 	
-	PUSH L
-	PUSH K
+	PUSHW L:K
 	CALL splice_out
 	ADD SP, 8
 	
@@ -670,30 +553,23 @@ merge:
 	
 	MOVW L:K, [L:K + FREE_HEADER_SIZE_STATUS_OFFS]	; L:K = new size = low_size + high_size + 4
 	AND K, 0xFFFC
-	ADD K, 4
-	ICC L
-	ADD K, A
-	ADC L, D
+	ADDW L:K, 4
+	ADDW L:K, D:A
 	
 	MOVW D:A, J:I
-	ADD A, K	; new_marker = low_header + new_size
-	ADC D, L
+	ADDW D:A, L:K	; new_marker = low_header + new_size
 	MOVW [D:A], L:K
 	
 	; splice it into the free list
 	OR K, B
 	
-	PUSH L
-	PUSH K
-	PUSH J
-	PUSH I
+	PUSHW L:K
+	PUSHW J:I
 	CALL splice_in
 	ADD SP, 8
 	
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	
 	POP BP
 	RET
@@ -706,14 +582,13 @@ splice_in:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
+	PUSHW J:I
 	
 	MOVW B:C, [BP + 8]	; new_block
 	MOVW D:A, [BP + 12]	; size_status
 	MOVW [B:C + FREE_HEADER_SIZE_STATUS_OFFS], D:A
 	MOVW D:A, heap
-	ADD A, HEAP_CONTROL_FREE_LIST_HEAD_OFFS - 4
+	ADDW D:A, HEAP_CONTROL_FREE_LIST_HEAD_OFFS - 4
 	MOVW [B:C + FREE_HEADER_PREV_OFFS], D:A
 	MOVW J:I, [D:A + 4]
 	MOVW [B:C + FREE_HEADER_NEXT_OFFS], J:I
@@ -721,8 +596,7 @@ splice_in:
 	MOVW [J:I + FREE_HEADER_PREV_OFFS], B:C
 	MOVW [D:A + 4], B:C
 	
-	POP J
-	POP I
+	POPW J:I
 	
 	POP BP
 	RET

@@ -1,0 +1,15 @@
+
+--
+-- Program Relocator
+-- Loads a program into memory
+--
+
+type program_info_s is structure of
+	code is ptr,	-- Code area, dynamically allocated
+	entry is ptr	-- entry pointer. If an "ENTRY" reference is present, its relocated value is placed here. Otherwise 0
+end type
+
+-- Relocate
+-- Relocate the file supplied by file_supplier
+-- file_supplier is a function pointer which, when called, must return the next byte in the file.
+external function _relocator.relocate of ptr file_supplier returns program_info;

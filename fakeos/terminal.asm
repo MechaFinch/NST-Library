@@ -25,6 +25,19 @@
 %define CHAR_NEWLINE 0x0A
 %define CHAR_ESCAPE 0x1B
 
+; Copy size bytes from r32 source to r32 destination
+; source and destination are incremented by size
+%macro copy_block(source, destination, size):
+	repeat (size / 4), LDIW ptr [destination + (%%i * 4)], source
+	ADDW destination, size
+%endmacro
+
+; Place size bytes of copies of r32 data at r32 destination
+; destination is incremented by size
+%macro set_block(destination, data, size):
+	repeat (size / 4), STIW destination, data
+%endmacro
+
 %PRIVILAGED
 
 current_state:		db STATE_NORMAL
@@ -53,8 +66,7 @@ init_terminal:
 	PUSH BP
 	MOVW BP, SP
 	
-	PUSH I
-	PUSH J
+	PUSHW J:I
 	PUSH K
 	
 	; reset state & cursor
@@ -121,8 +133,7 @@ init_terminal:
 	ADD SP, 11
 	
 	POP K
-	POP J
-	POP I
+	POPW J:I
 	POP BP
 	RET
 
@@ -137,8 +148,7 @@ send_character:
 	
 	PUSH byte 0 ; return value
 	
-	PUSH I
-	PUSH J
+	PUSHW J:I
 	
 	CMP byte [enabled], 0
 	JZ .ret
@@ -319,8 +329,7 @@ send_character:
 	JAE .ret_normal
 	
 	INC byte [current_state]	; arg states are sequential
-	INC I						; args are sequential in memory (clear it)
-	ICC J
+	INCW J:I					; args are sequential in memory (clear it)
 	MOV AL, 0
 	MOV [J:I], AL
 	JMP .ret
@@ -359,6 +368,9 @@ send_character:
 	CMP AL, 'J'	; J-erase functions
 	JE ansi_erase_j
 	
+	CMP AL, 'K' ; K-erase functions
+	JE ansi_erase_k
+	
 	CMP AL, '?'	; private modes
 	JE ansi_start_private_mode
 	
@@ -375,8 +387,7 @@ send_character:
 	MOV [current_state], AL
 	
 .ret:
-	POP J
-	POP I
+	POPW J:I
 	POP AL
 	POP BP
 	RET
@@ -506,6 +517,22 @@ ansi_erase_j:
 .erase_entire_screen:
 	PUSH byte [color_background]
 	CALL clear_screen
+	ADD SP, 1
+	JMP send_character.ret_normal
+
+
+
+; \[[...K
+; Erase functions (K)
+ansi_erase_k:
+	; arg determines function
+	CMP byte [ansi_arg_0], 2
+	JE .erase_entire_line
+	JMP send_character.ret_normal
+
+.erase_entire_line:
+	PUSH byte [color_background]
+	CALL clear_line
 	ADD SP, 1
 	JMP send_character.ret_normal
 
@@ -770,8 +797,7 @@ scroll_up:
 	MOVW L:K, VBUFFER_START	; VBUFFER_START	
 	MOVZ A, [min_y]			; min_y * 320 * 8
 	MULH D:A, 320 * 8
-	ADD K, A
-	ADC L, D
+	ADDW L:K, D:A
 	
 	MOVZ A, [min_x]			; min_x * 8
 	SHL A, 3
@@ -782,8 +808,7 @@ scroll_up:
 	MOVZ A, [BP + 8]
 	MULH D:A, 320
 	MOVW J:I, L:K
-	ADD I, A
-	ADC J, D
+	ADDW J:I, D:A
 	
 	; #pixels/line = (max_x - min-x + 1) * 8
 	MOV AL, [max_x]
@@ -813,50 +838,23 @@ scroll_up:
 .pixel_copy_loop_32:
 	CMP C, 32
 	JB .pixel_copy_loop_short
-	MOVW D:A, [J:I + 0]
-	MOVW [L:K + 0], D:A
-	MOVW D:A, [J:I + 4]
-	MOVW [L:K + 4], D:A
-	MOVW D:A, [J:I + 8]
-	MOVW [L:K + 8], D:A
-	MOVW D:A, [J:I + 12]
-	MOVW [L:K + 12], D:A
-	MOVW D:A, [J:I + 16]
-	MOVW [L:K + 16], D:A
-	MOVW D:A, [J:I + 20]
-	MOVW [L:K + 20], D:A
-	MOVW D:A, [J:I + 24]
-	MOVW [L:K + 24], D:A
-	MOVW D:A, [J:I + 28]
-	MOVW [L:K + 28], D:A
+	copy_block(J:I, L:K, 32)
 	
-	ADD I, 32
-	ICC J
-	ADD K, 32
-	ICC L
 	SUB C, 32
 	JNZ .pixel_copy_loop_32
 	JMP .line_copy_done
 
 .pixel_copy_loop_short:
-	MOVW D:A, [J:I + 0]
-	MOVW [L:K + 0], D:A
-	MOVW D:A, [J:I + 4]
-	MOVW [L:K + 4], D:A
+	copy_block(J:I, L:K, 8)
 	
-	ADD I, 8
-	ICC J
-	ADD K, 8
-	ICC L
 	SUB C, 8
 	JNZ .pixel_copy_loop_short
 
 	; done with the line
 .line_copy_done:
-	ADD I, [BP - 4]
-	ICC J
-	ADD K, [BP - 4]
-	ICC L
+	MOVZ D:A, [BP - 4]
+	ADDW J:I, D:A
+	ADDW L:K, D:A
 	DEC B
 	JNZ .line_copy_loop
 	
@@ -874,27 +872,15 @@ scroll_up:
 .pixel_clear_loop_32:
 	CMP C, 32
 	JB .pixel_clear_loop_short
-	MOVW [L:K + 0], D:A
-	MOVW [L:K + 4], D:A
-	MOVW [L:K + 8], D:A
-	MOVW [L:K + 12], D:A
-	MOVW [L:K + 16], D:A
-	MOVW [L:K + 20], D:A
-	MOVW [L:K + 24], D:A
-	MOVW [L:K + 28], D:A
+	set_block(L:K, D:A, 32)
 	
-	ADD K, 32
-	ICC L
 	SUB C, 32
 	JNZ .pixel_clear_loop_32
 	JMP .line_clear_done
 
 .pixel_clear_loop_short:
-	MOVW [L:K + 0], D:A
-	MOVW [L:K + 4], D:A
+	set_block(L:K, D:A, 8)
 	
-	ADD K, 8
-	ICC L
 	SUB C, 8
 	JNZ .pixel_clear_loop_short
 
@@ -929,6 +915,46 @@ scroll_down:
 ; none clear_screen(u8 color)
 ; Fills the screen area with color
 clear_screen:
+	PUSH BP
+	MOVW BP, SP
+	
+	; #rows to clear = max_y - min_y + 1
+	MOV AL, [max_y]
+	SUB AL, [min_y]
+	INC AL
+	
+	; clear_lines(0, #rows, color)
+	PUSH byte [BP + 8]
+	PUSH AL
+	PUSH byte 0
+	CALL clear_rows
+	ADD SP, 3
+	
+	POP BP
+	RET
+
+
+
+; none clear_line(u8 color)
+; Fill the current line with color
+clear_line:
+	PUSH BP
+	MOVW BP, SP
+	
+	; clear_lines(cursor_y, 1, color)
+	PUSH byte [BP + 8]
+	PUSH byte 1
+	PUSH byte [cursor_y]
+	CALL clear_rows
+	ADD SP, 3
+	
+	POP BP
+	RET
+	
+
+; none clear_rows(u8 start_row, u8 rows, u8 color)
+; Fills the screen for rows rows starting at start_addr with color
+clear_rows:
 	PUSHW BP
 	MOVW BP, SP
 	PUSHW J:I
@@ -941,21 +967,20 @@ clear_screen:
 	; K = newline offset
 	; L = pixels/line
 	
-	; start address = VBUFFER_START + (min_y * 320 * 8) + (min_x * 8)
+	; start address = VBUFFER_START + ((min_y + start_row) * 320 * 8) + (min_x * 8)
 	MOVW J:I, VBUFFER_START
 	MOVZ A, [min_y]
+	ADD AL, [BP + 8]
 	MULH D:A, (320 * 8)
-	ADD I, A
-	ADC J, D
+	ADDW J:I, D:A
 	MOVZ A, [min_x]
 	MULH D:A, 8
-	ADD I, A
-	ADC J, D
+	ADDW J:I, D:A
 	
-	; #pixels/line = (max_x - min-x + 1) * 8
+	; #pixels/line = (max_x - min_x + 1) * 8
 	MOV AL, [max_x]
 	SUB AL, [min_x]
-	INC A
+	INC AL
 	MULH A, 8
 	MOV L, A
 	
@@ -963,47 +988,45 @@ clear_screen:
 	MOV K, 320
 	SUB K, L
 	
-	; #lines to clear = (max_y - min-y + 1) * 8
-	MOV BL, [max_y]
-	SUB BL, [min_y]
-	INC BL
+	; #lines to clear = #rows * 8
+	MOV BL, [BP + 9]
 	MULH B, 8
 	
 	; data = all color
-	MOV AL, [BP + 8]
+	MOV AL, [BP + 10]
 	MOV AH, AL
 	MOV D, A
 	
 	; get going
 .line_loop:
 	MOV C, L
-
+	
+	; clear 16 characters worth
+.pixel_loop_128:
+	CMP C, 128
+	JB .pixel_loop_32
+	
+	set_block(J:I, D:A, 128)
+	
+	SUB C, 128
+	JNZ .pixel_loop_128
+	JMP .line_done
+	
 	; clear 4 characters worth
 .pixel_loop_32:
 	CMP C, 32
 	JB .pixel_loop_short
-	MOVW [J:I + 0], D:A
-	MOVW [J:I + 4], D:A
-	MOVW [J:I + 8], D:A
-	MOVW [J:I + 12], D:A
-	MOVW [J:I + 16], D:A
-	MOVW [J:I + 20], D:A
-	MOVW [J:I + 24], D:A
-	MOVW [J:I + 28], D:A
 	
-	ADD I, 32
-	ICC J
+	set_block(J:I, D:A, 32)
+	
 	SUB C, 32
 	JNZ .pixel_loop_32
 	JMP .line_done
 	
 	; clear 1 character worth
 .pixel_loop_short:
-	MOVW [J:I + 0], D:A
-	MOVW [J:I + 4], D:A
+	set_block(J:I, D:A, 8)
 	
-	ADD I, 8
-	ICC J
 	SUB C, 8
 	JNZ .pixel_loop_short
 	

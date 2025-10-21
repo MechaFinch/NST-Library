@@ -1,0 +1,12 @@
+
+--
+-- Relocator
+-- NSTL implementation
+--
+
+-- Relocate
+-- Relocate the file supplied by file_supplier
+-- file_supplier is a function pointer which, when called, must return the next byte in the file.
+function relocate of ptr file_supplier returns program_info begin
+
+end function
