@@ -5,20 +5,35 @@
 -- NSTL TEMPLATE
 --
 
--- initializes the heap
-external function _dma.init of ptr heap_start, u32 max_size returns none;
+type allocator_t is allocator_s pointer;
 
--- allocate n bytes on the heap, returning a pointer to it
-external function _dma.malloc of u32 n returns ptr;
+type allocator_s is structure of
+	heap			is ptr,	-- heap base
+	heap_size		is u32,	-- total size of heap
+	bytes_allocated	is u32,	-- #bytes allocated (excludes headers)
+	bytes_free		is u32,	-- #bytes free (excludes headers)
+	free_list_head	is ptr	-- first block in free list
+end type
+
+-- create a heap
+-- heap_size must be at least 64
+external function _dma.init of ptr heap_start, u32 heap_size returns allocator_t;
+
+-- allocate n bytes on a heap, returning a pointer to it
+-- if n bytes cannot be allocated, returns 0
+external function _dma.malloc of allocator_t heap, u32 n returns ptr;
 
 -- allocate n bytes on the heap, clearing them to zero and returning a pointer to it
-external function _dma.calloc of u32 n returns ptr;
+-- if n bytes cannot be allocated, returns 0
+external function _dma.calloc of allocator_t heap, u32 n returns ptr;
 
 -- re-allocate a block to a new size, copying the data as needed and returning a new pointer
-external function _dma.realloc of ptr block, u32 n returns ptr;
+-- if n bytes cannot be allocated, the block is left as-is and 0 is returned
+external function _dma.realloc of allocator_t heap, ptr block, u32 n returns ptr;
 
 -- re-allocate a block to a new size, copying data as needed and clearing any new space, returning the new pointer
-external function _dma.rcalloc of ptr block, u32 n returns ptr;
+-- if n bytes cannot be allocated, the block is left as-is and 0 is returned
+external function _dma.rcalloc of allocator_t heap, ptr block, u32 n returns ptr;
 
 -- free the block at the given pointer
-external function _dma.free of ptr block returns none;
+external function _dma.free of allocator_t heap, ptr block returns none;

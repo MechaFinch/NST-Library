@@ -21,13 +21,11 @@ pixel:
 	MOVW D:A, VBUFFER_START
 	MOV C, [BP + 10] ; y * width
 	MULSH B:C, COLS_PIXELS
-	ADD A, C
-	ADC D, B
+	ADDW D:A, B:C
 	ADD A, [BP + 8]
 	ICC D
 	
-	MOV CL, [BP + 12]
-	MOV [D:A], CL
+	STI D:A, byte [BP + 12]
 	
 	POP BP
 	RET
@@ -38,19 +36,16 @@ freeline:
 	PUSH BP
 	MOV BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; A = y1
 	; B = y2
 	; C = x2
 	; D = x1
-	MOV A, [BP + 10]
-	MOV B, [BP + 14]
-	MOV C, [BP + 12]
-	MOV D, [BP + 8]
+	MOVW D:A, [BP + 8]
+	XCHG D, A
+	MOVW B:C, [BP + 12]
 	
 	; determine what subroutine to call and how
 	; absolute value
@@ -98,9 +93,8 @@ freeline:
 	; yi = 1 if dy pos else -1
 	; dy = abs(dy)
 	XCHG A, B
-	SHR A, 15
-	NEG A
-	CMOVZ A, 1
+	SAR A, 15
+	OR A, 1
 	
 	; D = 2dy - dx
 	MOV D, B
@@ -128,21 +122,20 @@ freeline:
 	; loop by counter
 .low_loop:
 	; place pixel
-	MOV [J:I], AL
-	INC I
-	ICC J
+	STI J:I, AL
 	
 	CMP D, 0
 	JLE .no_y_change
 	
 	CMP L, 0
 	JS .yi_neg
-	ADD I, COLS_PIXELS ; y += yi
-	ICC J
+	
+	ADDW J:I, COLS_PIXELS	; y += yi
 	JMP .yi_pos
+	
 .yi_neg:
-	SUB I, COLS_PIXELS
-	DCC J
+	SUBW J:I, COLS_PIXELS
+	
 .yi_pos:
 	ADD D, C ; D += 2 * (dy - dx)
 	
@@ -215,20 +208,20 @@ freeline:
 .high_loop:
 	; place pixel
 	MOV [J:I], AL
-	ADD I, COLS_PIXELS
-	ICC J
+	ADDW J:I, COLS_PIXELS
 	
 	CMP D, 0
 	JLE .no_x_change
 	
 	CMP L, 0
 	JS .xi_neg
-	INC I
-	ICC J
+	
+	INCW J:I
 	JMP .xi_pos
+	
 .xi_neg:
-	DEC I
-	DCC J
+	DECW J:I
+	
 .xi_pos:
 	ADD D, B
 	DEC K
@@ -237,15 +230,12 @@ freeline:
 
 .no_x_change:
 	ADD D, C
-	
 	DEC K
 	JNS .high_loop
 	
 .done:
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	POP BP
 	RET
 
@@ -255,8 +245,7 @@ hlineus:
 	PUSH BP
 	MOV BP, SP
 	
-	PUSH I
-	PUSH J
+	PUSHW J:I
 	PUSH K
 	
 	MOVW D:A, [BP + 8]
@@ -270,8 +259,7 @@ hline:
 	PUSH BP
 	MOV BP, SP
 	
-	PUSH I
-	PUSH J
+	PUSHW J:I
 	PUSH K
 	
 	; D = y1
@@ -337,7 +325,7 @@ hline:
 	ADD A, C
 	ADC D, (VBUFFER_START / 0x1_0000)
 	
-	; CL = fgc
+	; J:I = FGC in all bytes
 	MOV CL, [BP + 14]
 	MOV CH, CL
 	MOV I, C
@@ -349,126 +337,76 @@ hline:
 	JL .last
 
 .fast_loop:
-	MOVW [D:A], J:I
-	MOVW [D:A + 4], J:I
-	MOVW [D:A + 8], J:I
-	MOVW [D:A + 12], J:I
+	STIW D:A, J:I
+	STIW D:A, J:I
+	STIW D:A, J:I
+	STIW D:A, J:I
 	
-	ADD A, 16
-	ICC D
 	SUB K, 16
 	CMP K, 16
 	JGE .fast_loop
 
 .last:
-	SHL K, 1
-	JMP word [IP + K]
-	dw @.d0
-	dw @.d1
-	dw @.d2
-	dw @.d3
-	dw @.d4
-	dw @.d5
-	dw @.d6
-	dw @.d7
-	dw @.d8
-	dw @.d9
-	dw @.dA
-	dw @.dB
-	dw @.dC
-	dw @.dD
-	dw @.dE
-	dw @.dF
-	
-.d1:
-	MOV [D:A], CL
-	JMP .done
-	
-.d2:
-	MOV [D:A], C
-	JMP .done
+	JMP byte [IP + K]
+	db @.d0
+	db @.d1
+	db @.d2
+	db @.d3
+	db @.d4
+	db @.d5
+	db @.d6
+	db @.d7
+	db @.d8
+	db @.d9
+	db @.dA
+	db @.dB
+	db @.dC
+	db @.dD
+	db @.dE
+	db @.dF
 
-.d3:
-	MOV [D:A + 0], C
-	MOV [D:A + 2], CL
-	JMP .done
-
-.d4:
-	MOVW [D:A], J:I
-	JMP .done
-
-.d5:
-	MOVW [D:A], J:I
-	MOV [D:A + 4], CL
-	JMP .done
-	
-.d6:
-	MOVW [D:A], J:I
-	MOV [D:A + 4], C
-	JMP .done
-	
-.d7:
-	MOVW [D:A], J:I
-	MOV [D:A + 4], C
-	MOV [D:A + 6], CL
-	JMP .done
-	
-.d8:
-	MOVW [D:A], J:I
-	MOVW [D:A + 4], J:I
-	JMP .done
-	
-.d9:
-	MOVW [D:A], J:I
-	MOVW [D:A + 4], J:I
-	MOV [D:A + 8], CL
-	JMP .done
-	
-.dA:
-	MOVW [D:A], J:I
-	MOVW [D:A + 4], J:I
-	MOV [D:A + 8], C
-	JMP .done
-	
-.dB:
-	MOVW [D:A], J:I
-	MOVW [D:A + 4], J:I
-	MOV [D:A + 8], C
-	MOV [D:A + 10], CL
-	JMP .done
-	
 .dC:
-	MOVW [D:A], J:I
-	MOVW [D:A + 4], J:I
-	MOVW [D:A + 8], J:I
+	STIW D:A, J:I
+.d8:
+	STIW D:A, J:I
+.d4:
+	STIW D:A, J:I
 	JMP .done
-	
+
 .dD:
-	MOVW [D:A], J:I
-	MOVW [D:A + 4], J:I
-	MOVW [D:A + 8], J:I
-	MOV [D:A + 12], CL
+	STIW D:A, J:I
+.d9:
+	STIW D:A, J:I
+.d5:
+	STIW D:A, J:I
+	STI D:A, CL
 	JMP .done
-	
+
 .dE:
-	MOVW [D:A], J:I
-	MOVW [D:A + 4], J:I
-	MOVW [D:A + 8], J:I
-	MOV [D:A + 12], C
+	STIW D:A, J:I
+.dA:
+	STIW D:A, J:I
+.d6:
+	STIW D:A, J:I
+.d2:
+	STI D:A, C
 	JMP .done
-	
+
 .dF:
-	MOVW [D:A], J:I
-	MOVW [D:A + 4], J:I
-	MOVW [D:A + 8], J:I
-	MOV [D:A + 12], C
-	MOV [D:A + 14], CL
+	STIW D:A, J:I
+.dB:
+	STIW D:A, J:I
+.d7:
+	STIW D:A, J:I
+.d3:
+	STI D:A, C
+.d1:
+	STI D:A, CL
 	
 .d0:
 .done:
 	POP K
-	POP J
-	POP I
+	POPW J:I
 	POP BP
 	RET
 
@@ -571,72 +509,36 @@ vline:
 	MOV [D:A + 6 * COLS_PIXELS], CL
 	MOV [D:A + 7 * COLS_PIXELS], CL
 	
-	ADD A, 8 * COLS_PIXELS
-	ICC D
+	ADDW D:A, 8 * COLS_PIXELS
 	SUB K, 8
 	CMP K, 8
 	JGE .fast_loop
 
 .last:
-	SHL K, 1
-	JMP word [IP + K]
-	dw @.d0
-	dw @.d1
-	dw @.d2
-	dw @.d3
-	dw @.d4
-	dw @.d5
-	dw @.d6
-	dw @.d7
+	JMP byte [IP + K]
+	db @.d0
+	db @.d1
+	db @.d2
+	db @.d3
+	db @.d4
+	db @.d5
+	db @.d6
+	db @.d7
 
+.d7:
+	MOV [D:A + 6 * COLS_PIXELS], CL
+.d6:
+	MOV [D:A + 5 * COLS_PIXELS], CL
+.d5:
+	MOV [D:A + 4 * COLS_PIXELS], CL
+.d4:
+	MOV [D:A + 3 * COLS_PIXELS], CL
+.d3:
+	MOV [D:A + 2 * COLS_PIXELS], CL
+.d2:
+	MOV [D:A + 1 * COLS_PIXELS], CL
 .d1:
 	MOV [D:A + 0 * COLS_PIXELS], CL
-	JMP .done
-	
-.d2:
-	MOV [D:A + 0 * COLS_PIXELS], CL
-	MOV [D:A + 1 * COLS_PIXELS], CL
-	JMP .done
-	
-.d3:
-	MOV [D:A + 0 * COLS_PIXELS], CL
-	MOV [D:A + 1 * COLS_PIXELS], CL
-	MOV [D:A + 2 * COLS_PIXELS], CL
-	JMP .done
-	
-.d4:
-	MOV [D:A + 0 * COLS_PIXELS], CL
-	MOV [D:A + 1 * COLS_PIXELS], CL
-	MOV [D:A + 2 * COLS_PIXELS], CL
-	MOV [D:A + 3 * COLS_PIXELS], CL
-	JMP .done
-	
-.d5:
-	MOV [D:A + 0 * COLS_PIXELS], CL
-	MOV [D:A + 1 * COLS_PIXELS], CL
-	MOV [D:A + 2 * COLS_PIXELS], CL
-	MOV [D:A + 3 * COLS_PIXELS], CL
-	MOV [D:A + 4 * COLS_PIXELS], CL
-	JMP .done
-	
-.d6:
-	MOV [D:A + 0 * COLS_PIXELS], CL
-	MOV [D:A + 1 * COLS_PIXELS], CL
-	MOV [D:A + 2 * COLS_PIXELS], CL
-	MOV [D:A + 3 * COLS_PIXELS], CL
-	MOV [D:A + 4 * COLS_PIXELS], CL
-	MOV [D:A + 5 * COLS_PIXELS], CL
-	JMP .done
-	
-.d7:
-	MOV [D:A + 0 * COLS_PIXELS], CL
-	MOV [D:A + 1 * COLS_PIXELS], CL
-	MOV [D:A + 2 * COLS_PIXELS], CL
-	MOV [D:A + 3 * COLS_PIXELS], CL
-	MOV [D:A + 4 * COLS_PIXELS], CL
-	MOV [D:A + 5 * COLS_PIXELS], CL
-	MOV [D:A + 6 * COLS_PIXELS], CL
-
 .d0:
 .done:
 	POP K
@@ -650,10 +552,8 @@ outline_rect:
 	PUSH BP
 	MOV BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; check and clip bounds
 	; I = x1
@@ -696,8 +596,7 @@ outline_rect:
 	; hline top
 	PUSH byte [BP + 16]
 	PUSH K
-	PUSH J
-	PUSH I
+	PUSHW J:I
 	CALL hlineus
 	
 	; hline bottom
@@ -710,8 +609,7 @@ outline_rect:
 	; vline left
 	PUSH byte [BP + 16]
 	PUSH L
-	PUSH J
-	PUSH I
+	PUSHW J:I
 	CALL vlineus
 	
 	; vline right
@@ -724,10 +622,8 @@ outline_rect:
 	ADD SP, 28
 	
 .done:
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	POP BP
 	RET
 
@@ -738,10 +634,8 @@ fill_rect:
 	PUSH BP
 	MOV BP, SP
 	
-	PUSH I
-	PUSH J
-	PUSH K
-	PUSH L
+	PUSHW J:I
+	PUSHW L:K
 	
 	; check and clip bounds
 	; I = x1
@@ -786,8 +680,7 @@ fill_rect:
 .loop:
 	PUSH byte [BP + 16]
 	PUSH K
-	PUSH J
-	PUSH I
+	PUSHW J:I
 	CALL hlineus
 	ADD SP, 7
 	
@@ -796,10 +689,8 @@ fill_rect:
 	JNS .loop
 	
 .done:
-	POP L
-	POP K
-	POP J
-	POP I
+	POPW L:K
+	POPW J:I
 	POP BP
 	RET
 	

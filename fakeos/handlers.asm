@@ -212,15 +212,26 @@ rtc:
 
 
 
+; diverr
+; ISR for a division error
+diverr:
+	IRET
+
+
+
 ; segfault
 ; ISR for segmentation fault
 segfault:
 	PUSHA
+	PUSH F
+	
 	MOV A, 0x23
 	MOV D, 1
 	MOVW B:C, string_segfault_after - string_segfault
 	MOVW J:I, string_segfault
 	INT 0x20
+	
+	POP F
 	POPA
 	CALL faults.report_state
 .end:
@@ -236,8 +247,10 @@ string_segfault_after:
 ; decoding error
 de:
 	PUSHA
+	PUSH F
+	
 	; trap or error
-	MOVW D:A, [SP + 16 + 12]
+	MOVW D:A, [SP + 16 + 12]	; D:A points to offending opcode
 	CMP byte [D:A], 0
 	JNZ .error
 
@@ -257,6 +270,7 @@ de:
 	INT 0x20
 	
 .report:
+	POP F
 	POPA
 	CALL faults.report_state
 .end:
@@ -274,11 +288,15 @@ string_trap_after:
 ; general protection fault
 gpf:
 	PUSHA
+	PUSH F
+	
 	MOV A, 0x23
 	MOV D, 1
 	MOVW B:C, string_gpfault_after - string_gpfault
 	MOVW J:I, string_gpfault
 	INT 0x20
+	
+	POP F
 	POPA
 	CALL faults.report_state
 .end:
@@ -294,11 +312,15 @@ string_gpfault_after:
 ; memory protection fault
 mpf:
 	PUSHA
+	PUSH F
+	
 	MOV A, 0x23
 	MOV D, 1
 	MOVW B:C, string_mpfault_after - string_mpfault
 	MOVW J:I, string_mpfault
 	INT 0x20
+	
+	POP F
 	POPA
 	CALL faults.report_state
 .end:

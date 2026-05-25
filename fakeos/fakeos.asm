@@ -22,7 +22,7 @@ stdio_state_input_echo:		db 1
 stdio_state_include_ansi:	db 1
 stdio_state_blocking:		db 1
 stdio_state_use_file:		db 0
-
+dma_heap_ptr:				dp 0
 
 
 ; none init(u32 dram_start, u32 dram_size)
@@ -36,6 +36,7 @@ init:
 	PUSH ptr [BP + 8]
 	CALL dma.init
 	ADD SP, 8
+	MOVW [dma_heap_ptr], D:A
 	
 	; init terminal
 	CALL term.init_terminal
@@ -98,8 +99,9 @@ syscall_memory_allocate:
 	PUSHW B:C
 	
 	PUSHW B:C
+	PUSHW ptr [dma_heap_ptr]
 	CALL dma.malloc
-	ADD SP, 4
+	ADD SP, 8
 	
 	POPW B:C
 	RET
@@ -111,8 +113,9 @@ syscall_clear_allocate:
 	PUSHW B:C
 	
 	PUSHW B:C
+	PUSHW ptr [dma_heap_ptr]
 	CALL dma.calloc
-	ADD SP, 4
+	ADD SP, 8
 	
 	POPW B:C
 	RET
@@ -125,8 +128,9 @@ syscall_re_allocate:
 	
 	PUSHW B:C
 	PUSHW J:I
+	PUSHW ptr [dma_heap_ptr]
 	CALL dma.realloc
-	ADD SP, 8
+	ADD SP, 12
 	
 	POPW B:C
 	RET
@@ -139,8 +143,9 @@ syscall_clear_re_allocate:
 	
 	PUSHW B:C
 	PUSHW J:I
+	PUSHW ptr [dma_heap_ptr]
 	CALL dma.rcalloc
-	ADD SP, 8
+	ADD SP, 12
 	
 	POPW B:C
 	RET
@@ -152,8 +157,9 @@ syscall_free:
 	PUSHW B:C
 	
 	PUSHW B:C
+	PUSHW ptr [dma_heap_ptr]
 	CALL dma.free
-	ADD SP, 4
+	ADD SP, 8
 	
 	POPW B:C
 	RET

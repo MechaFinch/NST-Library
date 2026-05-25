@@ -12,7 +12,7 @@
 
 %libname fxp
 
-%include mathutil.asm as util
+%include "mathutil.asm" as util
 
 ; u16 to88(u8 a)
 ; returns a as 8.8 fixed point

@@ -1,0 +1,24 @@
+
+-- 
+-- STANDARD LIBRARY - MEMORY
+-- DYNAMIC MEMORY ALLOCATOR
+-- NSTL TEMPLATE
+--
+
+-- initializes the heap
+external function _dma.init of ptr heap_start, u32 max_size returns none;
+
+-- allocate n bytes on the heap, returning a pointer to it
+external function _dma.malloc of u32 n returns ptr;
+
+-- allocate n bytes on the heap, clearing them to zero and returning a pointer to it
+external function _dma.calloc of u32 n returns ptr;
+
+-- re-allocate a block to a new size, copying the data as needed and returning a new pointer
+external function _dma.realloc of ptr block, u32 n returns ptr;
+
+-- re-allocate a block to a new size, copying data as needed and clearing any new space, returning the new pointer
+external function _dma.rcalloc of ptr block, u32 n returns ptr;
+
+-- free the block at the given pointer
+external function _dma.free of ptr block returns none;

@@ -36,63 +36,65 @@ report_state:
 	PUSHW YP
 	PUSHA
 	
-	; 40	IP
-	; 36	BP
-	; 32	SP
-	; 30	F
-	; 28	PF
-	; 24	return address
-	; 20	XP
-	; 16	YP
-	; 14	D
-	; 12	A
-	; 10	B
-	; 8		C
-	; 6		J
-	; 4		I
-	; 2		L
-	; 0		K
+	; 46	IP
+	; 42	BP
+	; 38	SP
+	; 36	F
+	; 34	PF
+	; 30	return address
+	; 26	XP
+	; 22	YP
+	; 20	D
+	; 18	A
+	; 16	B
+	; 14	C
+	; 12	J
+	; 10	I
+	; 8		L
+	; 6		K
+	; 4		Interrupt F
+	; 0		Interrupt BP
 	
 	print(str_head, str_head_a)
 	
 	print(str_r16s, str_r16s_a)
-	print_reg(12)
+	print_reg(18)
+	print(str_space, str_space_a)
+	print_reg(16)
+	print(str_space, str_space_a)
+	print_reg(14)
+	print(str_space, str_space_a)
+	print_reg(20)
+	
 	print(str_space, str_space_a)
 	print_reg(10)
 	print(str_space, str_space_a)
-	print_reg(8)
-	print(str_space, str_space_a)
-	print_reg(14)
-	
-	print(str_space, str_space_a)
-	print_reg(4)
+	print_reg(12)
 	print(str_space, str_space_a)
 	print_reg(6)
 	print(str_space, str_space_a)
-	print_reg(0)
-	print(str_space, str_space_a)
-	print_reg(2)
+	print_reg(8)
 	
 	print(str_r32s, str_r32s_a)
+	print_reg(28)
+	print_reg(26)
+	print(str_space2, str_space2_a)
+	print_reg(24)
 	print_reg(22)
-	print_reg(20)
 	print(str_space2, str_space2_a)
-	print_reg(18)
-	print_reg(16)
+	print_reg(44)
+	print_reg(42)
 	print(str_space2, str_space2_a)
+	print_reg(40)
 	print_reg(38)
-	print_reg(36)
-	print(str_space2, str_space2_a)
-	print_reg(34)
-	print_reg(32)
 	
 	print(str_specs, str_specs_a)
-	print_reg(42)
-	print_reg(40)
+	print_reg(48)
+	print_reg(46)
 	print(str_space2, str_space2_a)
-	print_reg(30)
+	print_reg(36)
 	print(str_space, str_space_a)
-	print_reg(28)
+	print_reg(34)
 	
 	print(str_inst, str_inst_a)
 	MOVW L:K, [SP + 40]	; get IP
@@ -104,6 +106,14 @@ report_state:
 	print_mem(5)
 	print_mem(6)
 	print_mem(7)
+	
+	print(str_inter, str_inter_a)
+	PUSHW BP
+	print_reg(2)
+	print_reg(0)
+	print(str_space2, str_space_a)
+	print_reg(4)
+	
 	
 	POPA
 	POPW YP
@@ -124,12 +134,12 @@ print16:
 	PCMP8 A, 0x0A0A			; number to digit/letter
 	PCMOV8AE B, 0x3737
 	PCMOV8B B, 0x3030
-	PADD8 A, B
 	
 	PCMP8 D, 0x0A0A			; same for D
 	PCMOV8AE B, 0x3737
 	PCMOV8B B, 0x3030
-	PADD8 D, B
+	
+	ADDW D:A, B:C			; won't overflow; don't need packed
 	
 	XCHG DH, AL				; reverse bytes
 	XCHG DL, AH
@@ -158,7 +168,7 @@ print8:
 	PCMP8 A, 0x0A0A			; number to digit/letter
 	PCMOV8AE B, 0x3737
 	PCMOV8B B, 0x3030
-	PADD8 A, B
+	ADD A, B
 	
 	XCHG AH, AL
 	
@@ -186,3 +196,5 @@ str_specs: db 0x1B, "[8;1fIP        F    PF", 0x1B, "[9;1f"
 str_specs_a:
 str_inst: db 0x1B, "[11;1fInstruction", 0x1B, "[12;1f"
 str_inst_a:
+str_inter: db 0x1B, "[14;1fInt. BP   Int. F", 0x1B, "[15;1f"
+str_inter_a:

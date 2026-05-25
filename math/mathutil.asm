@@ -91,18 +91,14 @@ muls32:
 	CMP byte [BP + 11], 0
 	JGE .a_pos
 	
-	MOVW D:A, 0
-	SUBW D:A, [BP + 8]
-	MOVW [BP + 8], D:A
+	NEGW ptr [BP + 8]
 	MOV B, 1
 
 .a_pos:
 	CMP byte [BP + 15], 0
 	JGE .b_pos
 	
-	MOVW D:A, 0
-	SUBW D:A, [BP + 12]
-	MOVW [BP + 12], D:A
+	NEGW ptr [BP + 12]
 	XOR BL, 1
 
 .b_pos:
@@ -136,9 +132,7 @@ muls32:
 	
 	NOT B
 	NOT C
-	NOT D
-	NEG A
-	ICC D
+	NEGW D:A
 	ICCW B:C
 	
 .r_pos:
@@ -323,104 +317,124 @@ divms32:
 	CMOVS BL, 1
 	JNS .a_pos
 	
-	NOT word [BP + 10]
-	NEG word [BP + 8]
-	ICC word [BP + 10]
+	NEGW ptr [BP + 8]
 
 .a_pos:
-	CMP byte [BP + 15], 0
+	CMP byte [BP + 15], 0	; BH = sign(b)
 	CMOVS BH, 1
 	JNS .b_pos
 	
-	NOT word [BP + 14]
-	NEG word [BP + 12]
-	ICC word [BP + 14]
+	NEGW ptr [BP + 12]
 	
 .b_pos:
 	PUSH B
 	
-	PUSH word [BP + 14]
-	PUSH word [BP + 12]
-	PUSH word [BP + 10]
-	PUSH word [BP + 8]
+	PUSHW ptr [BP + 12]
+	PUSHW ptr [BP + 8]
 	CALL divmu32
 	ADD SP, 8
 	
-	XCHG B, [SP]
-	CMP B, 0x0000	; a+ b+
-	JMP .ok
-	CMP B, 0x0001	; a+ b-
-	JMP .a_pos_b_neg
-	CMP B, 0x0100	; a- b+
-	JMP .a_neg_b_pos
+	XCHG B, [SP]			; BH = sign(b), BL = sign(a)
+	PCMP8 B, 0x0101			; compare sign bytes individually
+	POP B					; B = remainder high
+	JZ.E8 .ok				; a+ b+ (each zero)
+	JNZ.E8 .a_neg_b_neg		; a- b- (each nonzero)
+	JZ .a_pos_b_neg			; a+ b- (BL zero -> BH nonzero)
 	
-	; a- b-
+	; a- b+ (BL nonzero -> BH zero)
+.a_neg_b_pos:
+	NEGW D:A	; quot = -quot
+	NEGW B:C	; rem = -rem
+	JMP .ok
+	
 .a_neg_b_neg:
-	; rem = -rem
-	NOT word [SP]
-	NEG C
-	ICC word [SP]
+	NEGW B:C	; rem = -rem
 	JMP .ok
 
 .a_pos_b_neg:
-	; quot = -quot
-	NOT D
-	NEG A
-	ICC D
-	JMP .ok
-
-.a_neg_b_pos:
-	; quot = -quot
-	NOT D
-	NEG A
-	ICC D
-	
-	; rem = -rem
-	NOT word [SP]
-	NEG C
-	ICC word [SP]
+	NEGW D:A ; quot = -quot
 	
 .ok:
-	POP B
 	POP BP
 	RET
 	
-	
-	
+
+
 ; u32 to_hex_string(u16 num)
 ; Converts the given number to a hex string
 to_hex_string:
 	PUSH BP
-	MOV BP, SP
+	MOVW BP, SP
 	
-	MOV D, [BP + 8]
-	MOV CL, DL
-	AND CL, 0x0F
-	CALL .sub_to_char
-	MOV AL, BL
+	MOV A, [BP + 8]			; get num
+	PMULH4 D:A, 0x1111		; nybbles of num -> bytes of D:A
 	
-	MOV CL, DL
-	SHR CL, 4
-	CALL .sub_to_char
-	MOV AH, BL
+	MOVW B:C, 0x3030_3030	; "0000" in B:C
 	
-	MOV CL, DH
-	AND CL, 0x0F
-	CALL .sub_to_char
-	MOV DL, BL
+	PCMP8 D, 0x0A0A			; Check for A-F in D
+	PCMOV8AE B, 0x3737		; setup for A-F in D
 	
-	MOV CL, DH
-	SHR CL, 4
-	CALL .sub_to_char
-	MOV DH, BL
+	PCMP8 A, 0x0A0A			; same in A
+	PCMOV8AE C, 0x3737
 	
-	POP BP
+	ADDW D:A, B:C			; convert bytes -> chars (won't overflow -> not packed)
+	
+	POPW BP
+	RET
+
+
+
+; u16 from_hex_string(u32 str)
+; Converets the given number from a capitalized hex string
+from_hex_string:
+	PUSH BP
+	MOVW BP, SP
+	
+	MOVW D:A, [BP + 8]		; get string
+	
+	MOVW B:C, 0x30303030	; Setup B:C for 0-9 -> 0-9
+	
+	PCMP8 D, 0x4141			; Check for A-F
+	PCMOV8AE B, 0x3737		; Setup A-F -> 10-15
+	
+	PCMP8 A, 0x4141			; Same in A
+	PCMOV8AE C, 0x3737
+	
+	SUBW D:A, B:C			; Characters -> nybbles
+	
+	XCHG AH, DL				; A = low nybbles correct, upper nybbles clear, D = upper nybbles shifted right 4
+	SHL D, 4				; D = upper nybbles correct
+	OR A, D					; A = number
+	
+	POPW BP
 	RET
 	
-.sub_to_char:
-	; converts CL to its character in BL
-	MOV BL, 0x30
-	CMP CL, 0x0A
-	CMOVAE BL, 0x41 - 0x0A
-	ADD BL, CL
-	RET
+	
+	
+	; Lowercase to Uppercase of 4 bytes, straight line code, 10 instructions, 40 bytes
+	; D:A = 4 bytes of chars
+	MOVW B:C, 0			; 2 Setup B:C
+	
+	PCMP8 D, 0x6161		; 4 Check >=a
+	PCMOV8AE B, 0x5656	; 5 Setup lower -> upper for >=a
+	PCMP8 D, 0x7B7B		; 4 Check >={
+	PCMOV8AE B, 0x0000	; 5 Un-set lower -> upper for >={
+	
+	PCMP8 A, 0x6161		; 4 Same with A/C
+	PCMOV8AE C, 0x5656	; 5
+	PCMP8 A, 0x7B7B		; 4
+	PCMOV8AE C, 0x0000	; 5
+	
+	SUBW D:A, B:C		; 2 Perform lower -> upper
+	
+	; Lowercase to uppercase of 4 bytes, branching, 20 instructions, 52 bytes
+	; best	8 instructions	20 bytes	4 taken branches
+	; avg	11 instructions	27 bytes	3 taken branches
+	; worst	20 instructions	52 bytes	0 taken branches
+	; D:A = 4 bytes of chars
+	CMP AL, 0x61	; 3
+	JB .b1			; 2 75.00% taken
+	CMP AL, 0x7B	; 3
+	JNB .b1			; 2 18.75% taken
+	SUB AL, 0x56	; 3
+	; repeat for each byte

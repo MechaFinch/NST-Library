@@ -5,16 +5,8 @@
 ; ASSEMBLY IMPLEMENTATION
 ;
 ; Trigonomotry functions for 16 and 32 bit fixed point
-; Functions taking an angle expect a value within [-pi, pi]
+; Functions taking an angle do so in radians
 ;
-
-
-;
-; TODO
-; look into that kaze emulator sin/cos video for info on
-; allowing +/- 2pi as input rather than +/- pi
-;
-
 
 %libname fxt
 
@@ -34,6 +26,11 @@ cord88:
 	
 	PUSHW J:I
 	PUSHW L:K
+	
+	; Get into (-2pi, 2pi)
+	MOVS D:A, [BP + 12]		; D:A = sx a
+	DIVMS D:A, cord88_2pi	; A = a mod 2pi
+	MOV A, D
 	
 	; Get a in the range (-pi/2, pi/2)
 	; If a is in [3pi/2, 2pi] a = a - 2pi
